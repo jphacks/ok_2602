@@ -63,7 +63,23 @@ export interface ReceivedPacket {
   hex: string
 }
 
+// プレイヤーが操作するルータ自身の情報（ルータ情報のボタンで表示する）
+export interface RouterInfo {
+  name: string
+  interfaces: {
+    name: string
+    // "192.168.1.1/24" の形
+    address: string
+    subnetMask: string
+    network: string
+    mac: string
+    // つながっている相手（"PC1 の eth0" など）。つながっていなければ空文字
+    neighbor: string
+  }[]
+}
+
 export interface WorkspaceData {
+  router: RouterInfo
   tables: Record<TableId, NetworkTable>
   packets: ReceivedPacket[]
   todos: string[]

@@ -9,6 +9,7 @@ export type WorkView =
   | { kind: 'none' }
   | { kind: 'todo' }
   | { kind: 'packet_overview' }
+  | { kind: 'router_info' }
   | { kind: 'compose'; buttonId: ActionButtonId }
 
 type ReceivedPacketsPanelProps = {
@@ -83,7 +84,7 @@ const getButtonView = (id: ActionButtonId): WorkView => {
   return { kind: 'compose', buttonId: id }
 }
 
-// 「パケット送信」の枠。左に作業ボタン、右にやることリストやパケット作成の画面を出す
+// 「パケット送信」の枠。左に作業ボタン（先頭はどのステージでも出すルータの情報）、右にやることリストやパケット作成の画面を出す
 export function WorkPanel({ buttonIds, todos, view, onChangeView, detail }: WorkPanelProps) {
   const isSelected = (id: ActionButtonId) => {
     const buttonView = getButtonView(id)
@@ -93,31 +94,36 @@ export function WorkPanel({ buttonIds, todos, view, onChangeView, detail }: Work
   return (
     <Panel title="パケット送信" flex="1" minH="0">
       <Stack direction={{ base: 'column', md: 'row' }} gap="4" align="stretch" flex="1" minH="0">
-        {buttonIds.length > 0 && (
-          <VStack align="stretch" gap="2" w={{ base: 'full', md: '40' }} flexShrink="0" overflow={{ lg: 'auto' }}>
-            {buttonIds.map((id, index) =>
-              // やることリストは目立つ色にし、最後に置かれたときは下端に寄せる
-              id === 'todo_list' ? (
-                <Button
-                  key={id}
-                  size="sm"
-                  mt={index === buttonIds.length - 1 ? { base: '2', md: 'auto' } : undefined}
-                  bg={isSelected(id) ? 'green.600' : 'green.500'}
-                  color="white"
-                  _hover={{ bg: 'green.600' }}
-                  aria-pressed={isSelected(id)}
-                  onClick={() => onChangeView(getButtonView(id))}
-                >
-                  {ACTION_BUTTON_LABELS[id]}
-                </Button>
-              ) : (
-                <ToggleButton key={id} size="sm" isSelected={isSelected(id)} onClick={() => onChangeView(getButtonView(id))}>
-                  {ACTION_BUTTON_LABELS[id]}
-                </ToggleButton>
-              ),
-            )}
-          </VStack>
-        )}
+        <VStack align="stretch" gap="2" w={{ base: 'full', md: '40' }} flexShrink="0" overflow={{ lg: 'auto' }}>
+          <ToggleButton
+            size="sm"
+            isSelected={view.kind === 'router_info'}
+            onClick={() => onChangeView({ kind: 'router_info' })}
+          >
+            ルータの情報
+          </ToggleButton>
+          {buttonIds.map((id, index) =>
+            // やることリストは目立つ色にし、最後に置かれたときは下端に寄せる
+            id === 'todo_list' ? (
+              <Button
+                key={id}
+                size="sm"
+                mt={index === buttonIds.length - 1 ? { base: '2', md: 'auto' } : undefined}
+                bg={isSelected(id) ? 'green.600' : 'green.500'}
+                color="white"
+                _hover={{ bg: 'green.600' }}
+                aria-pressed={isSelected(id)}
+                onClick={() => onChangeView(getButtonView(id))}
+              >
+                {ACTION_BUTTON_LABELS[id]}
+              </Button>
+            ) : (
+              <ToggleButton key={id} size="sm" isSelected={isSelected(id)} onClick={() => onChangeView(getButtonView(id))}>
+                {ACTION_BUTTON_LABELS[id]}
+              </ToggleButton>
+            ),
+          )}
+        </VStack>
         <Box
           flex="1"
           minW="0"
