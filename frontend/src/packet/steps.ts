@@ -22,10 +22,22 @@ export interface PacketDraft {
 // オプション packet_auto_fields で自動入力になっている項目か
 export type IsAutoFilled = (protocol: ProtocolId, field: FieldDefinition) => boolean
 
-export function createIsAutoFilled(autoFields: string[]): IsAutoFilled {
+// 編集できない項目（オプション packet_editable_fields）のうち、固定値・計算値で埋められるものも自動入力にする
+export function createIsAutoFilled(autoFields: string[], isEditable: IsEditable = () => true): IsAutoFilled {
   const names = new Set(autoFields)
   return (protocol, field) =>
-    canAutoFill(field) && (names.has(protocol) || names.has(`${protocol}.${field.key}`))
+    canAutoFill(field) &&
+    (names.has(protocol) || names.has(`${protocol}.${field.key}`) || !isEditable(`${protocol}.${field.key}`))
+}
+
+// オプション packet_editable_fields（ボタンごと）でユーザーが編集できる項目か。
+// name は "ipv4.src" のような「層.項目」か、データ部の "payload"。指定がないボタンはすべて編集できる
+export type IsEditable = (name: string) => boolean
+
+export function createIsEditable(editableFields?: string[]): IsEditable {
+  if (!editableFields) return () => true
+  const names = new Set(editableFields)
+  return (name) => names.has(name) || names.has(name.split('.')[0])
 }
 
 export function createDraft(settings: ComposeSettings): PacketDraft {
@@ -76,4 +88,12 @@ export function getInitialAnalyzedLayers(hex: string, autoLayers: ProtocolId[]):
   if (!autoLayers.includes('ethernet') || bytes.length < PROTOCOLS.ethernet.headerLength) return []
   const upper = getUpperProtocol(bytes, 0)
   return upper && autoLayers.includes(upper) ? ['ethernet', upper] : ['ethernet']
+}
+
+// 受信パケットの解析が最後まで終わったか。Ethernet と、その上の層（IPv4 / ARP）まで解析すれば終わり。
+// 上の層がこの画面で解析できない種類なら、Ethernet だけで終わりとする
+export function isAnalysisComplete(hex: string, analyzedLayers: ProtocolId[]): boolean {
+  if (!analyzedLayers.includes('ethernet')) return false
+  const bytes = parseHex(hex) ?? []
+  return analyzedLayers.some((protocol) => protocol !== 'ethernet') || getUpperProtocol(bytes, 0) === null
 }

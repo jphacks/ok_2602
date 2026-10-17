@@ -1,5 +1,6 @@
-import { Button, HStack, Text, VStack } from '@chakra-ui/react'
+import { Button, Flex, HStack, Text, VStack } from '@chakra-ui/react'
 import { useState } from 'react'
+import { SecondaryButton } from '../components/ui'
 import { parseHex } from '../packet/bytes'
 import { getUpperProtocol, parseLayer, PROTOCOLS, type ParsedLayer, type ProtocolId } from '../packet/protocols'
 import type { ReceivedPacket } from '../stage/types'
@@ -10,10 +11,12 @@ type Props = {
   // 解析済みの層（低レイヤから順）
   analyzedLayers: ProtocolId[]
   onAnalyze: (analyzedLayers: ProtocolId[]) => void
+  // 指定すると見出しの右に「戻る」ボタンを出す
+  onBack?: () => void
 }
 
 // 受信パケットを16進数の生データから低レイヤ→高レイヤの順に解析する
-export function PacketAnalyzer({ packet, analyzedLayers, onAnalyze }: Props) {
+export function PacketAnalyzer({ packet, analyzedLayers, onAnalyze, onBack }: Props) {
   const [notice, setNotice] = useState<string | null>(null)
   const bytes = parseHex(packet.hex) ?? []
 
@@ -51,9 +54,16 @@ export function PacketAnalyzer({ packet, analyzedLayers, onAnalyze }: Props) {
 
   return (
     <VStack align="stretch" gap="3">
-      <Text fontWeight="bold" color="gray.800">
-        {packet.label}の解析
-      </Text>
+      <Flex justify="space-between" align="center" gap="2">
+        <Text fontWeight="bold" color="gray.800">
+          {packet.label}の解析
+        </Text>
+        {onBack && (
+          <SecondaryButton size="sm" flexShrink="0" onClick={onBack}>
+            戻る
+          </SecondaryButton>
+        )}
+      </Flex>
       <HStack gap="2" flexWrap="wrap">
         {buttons.map(({ protocol, isDone, isDisabled }) => (
           <Button

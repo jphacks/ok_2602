@@ -108,12 +108,11 @@ export function LayerList({ title, layers }: { title: string; layers: ParsedLaye
 }
 
 type PacketOverviewProps = {
-  drafts: { id: string; label: string; settings: ComposeSettings; draft: PacketDraft }[]
-  isAutoFilled: IsAutoFilled
+  drafts: { id: string; label: string; settings: ComposeSettings; draft: PacketDraft; isAutoFilled: IsAutoFilled }[]
 }
 
 // 作成中・作成済みのパケットの全体像を並べて見る
-export function PacketOverview({ drafts, isAutoFilled }: PacketOverviewProps) {
+export function PacketOverview({ drafts }: PacketOverviewProps) {
   return (
     <VStack align="stretch" gap="4">
       <Text fontWeight="bold" color="gray.800">
@@ -124,7 +123,7 @@ export function PacketOverview({ drafts, isAutoFilled }: PacketOverviewProps) {
           このステージで作成できるパケットはありません。
         </Text>
       )}
-      {drafts.map(({ id, label, settings, draft }) => {
+      {drafts.map(({ id, label, settings, draft, isAutoFilled }) => {
         const packet = buildDraft(settings, draft, isAutoFilled)
         const layers = packet.layers.flatMap((layer) => parseLayer(layer.protocol, packet.bytes, layer.start) ?? [])
         const status = packet.isComplete

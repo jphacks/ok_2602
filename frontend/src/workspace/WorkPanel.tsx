@@ -1,28 +1,35 @@
-import { Box, Button, List, Stack, Text, VStack } from '@chakra-ui/react'
+import { Badge, Box, Button, List, Stack, Text, VStack } from '@chakra-ui/react'
 import type { ReactNode } from 'react'
 import { Panel, ToggleButton } from '../components/ui'
 import { ACTION_BUTTON_LABELS, type ActionButtonId } from '../stage/actionButtons'
 import type { ReceivedPacket } from '../stage/types'
 
-// 作業枠の右側に表示する内容
+// パケット送信の枠の右側に表示する内容
 export type WorkView =
   | { kind: 'none' }
   | { kind: 'todo' }
   | { kind: 'packet_overview' }
-  | { kind: 'analyze'; packetId: string }
   | { kind: 'compose'; buttonId: ActionButtonId }
 
 type ReceivedPacketsPanelProps = {
   packets: ReceivedPacket[]
   selectedId: string | null
+  // 解析が最後まで終わったパケット。一覧で「解析済み」の目印を付ける
+  completedIds: string[]
   onSelect: (packet: ReceivedPacket) => void
+  // 開いているパケットの解析画面。あるときは一覧の代わりにこれを出す（一覧に戻るボタンは解析画面の中にある）
+  detail?: ReactNode
 }
 
-// 受信パケットの一覧。押すと作業枠で解析できる
-export function ReceivedPacketsPanel({ packets, selectedId, onSelect }: ReceivedPacketsPanelProps) {
+// パケット受信の枠。受信パケットの一覧を出し、押すとこの枠の中で解析できる
+export function ReceivedPacketsPanel({ packets, selectedId, completedIds, onSelect, detail }: ReceivedPacketsPanelProps) {
   return (
-    <Panel title="受信パケット" flexShrink="0">
-      {packets.length === 0 ? (
+    <Panel title="パケット受信" flexShrink="0">
+      {detail ? (
+        <Box maxH="72" overflow="auto">
+          {detail}
+        </Box>
+      ) : packets.length === 0 ? (
         <Text fontSize="sm" color="gray.500">
           まだパケットは届いていません
         </Text>
@@ -32,10 +39,25 @@ export function ReceivedPacketsPanel({ packets, selectedId, onSelect }: Received
             <ToggleButton
               key={packet.id}
               isSelected={packet.id === selectedId}
+              position="relative"
               fontWeight="normal"
               onClick={() => onSelect(packet)}
             >
               {packet.label}
+              {/* 名前が中央からずれないよう、目印はボタンの右端に重ねて置く */}
+              {completedIds.includes(packet.id) && (
+                <Badge
+                  position="absolute"
+                  right="3"
+                  top="50%"
+                  transform="translateY(-50%)"
+                  colorPalette="green"
+                  variant="solid"
+                  size="sm"
+                >
+                  解析済み
+                </Badge>
+              )}
             </ToggleButton>
           ))}
         </VStack>
@@ -50,7 +72,7 @@ type WorkPanelProps = {
   todos: string[]
   view: WorkView
   onChangeView: (view: WorkView) => void
-  // やることリスト以外のときに右側に表示する内容（パケットの解析・作成など）
+  // やることリスト以外のときに右側に表示する内容（パケットの作成など）
   detail: ReactNode
 }
 
@@ -61,7 +83,7 @@ const getButtonView = (id: ActionButtonId): WorkView => {
   return { kind: 'compose', buttonId: id }
 }
 
-// 「作業」の枠。左に作業ボタン、右にやることリストや解析・作成の画面を出す
+// 「パケット送信」の枠。左に作業ボタン、右にやることリストやパケット作成の画面を出す
 export function WorkPanel({ buttonIds, todos, view, onChangeView, detail }: WorkPanelProps) {
   const isSelected = (id: ActionButtonId) => {
     const buttonView = getButtonView(id)
@@ -69,7 +91,7 @@ export function WorkPanel({ buttonIds, todos, view, onChangeView, detail }: Work
   }
 
   return (
-    <Panel title="作業" flex="1" minH="0">
+    <Panel title="パケット送信" flex="1" minH="0">
       <Stack direction={{ base: 'column', md: 'row' }} gap="4" align="stretch" flex="1" minH="0">
         {buttonIds.length > 0 && (
           <VStack align="stretch" gap="2" w={{ base: 'full', md: '40' }} flexShrink="0" overflow={{ lg: 'auto' }}>
@@ -121,7 +143,7 @@ export function WorkPanel({ buttonIds, todos, view, onChangeView, detail }: Work
             </VStack>
           ) : view.kind === 'none' ? (
             <Text fontSize="sm" color="gray.600">
-              受信パケットを選ぶと、ここで解析できます。
+              左のボタンを選ぶと、ここでパケットを作成できます。
             </Text>
           ) : (
             detail

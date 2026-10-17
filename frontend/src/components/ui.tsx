@@ -77,10 +77,12 @@ export function StageButton({ stage, stageNumber }: { stage: Stage; stageNumber:
   )
 }
 
-// 作業画面の白い枠。title を省略すると見出しなし
+// 作業画面の白い枠。title を省略すると見出しなし。
+// 見出しがあるときは fieldset / legend にして、枠線が見出しの部分で途切れるようにする（ブラウザ標準の描き方）
 export function Panel({ title, action, children, ...props }: StackProps & { title?: string; action?: ReactNode }) {
   return (
     <VStack
+      as={title ? 'fieldset' : undefined}
       align="stretch"
       gap="3"
       bg="white"
@@ -89,12 +91,13 @@ export function Panel({ title, action, children, ...props }: StackProps & { titl
       rounded="2xl"
       shadow="sm"
       p="4"
+      pt={title ? '2' : '4'}
       minW="0"
       textAlign="left"
       {...props}
     >
       {title && (
-        <Flex justify="space-between" align="center" gap="2">
+        <Flex as="legend" align="center" gap="2" px="2">
           <Heading as="h2" size="sm" color="gray.800">
             {title}
           </Heading>

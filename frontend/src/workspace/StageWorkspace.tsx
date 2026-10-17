@@ -1,10 +1,17 @@
 import { Grid, VStack } from '@chakra-ui/react'
 import { useMemo, useState } from 'react'
 import type { ProtocolId } from '../packet/protocols'
-import { createDraft, createIsAutoFilled, getInitialAnalyzedLayers, type PacketDraft } from '../packet/steps'
+import {
+  createDraft,
+  createIsAutoFilled,
+  createIsEditable,
+  getInitialAnalyzedLayers,
+  isAnalysisComplete,
+  type PacketDraft,
+} from '../packet/steps'
 import { ACTION_BUTTON_LABELS, COMPOSE_SETTINGS, resolveActionButtons, type ActionButtonId } from '../stage/actionButtons'
 import { resolveOptions, TABLE_EDIT_OPTIONS, type TableId } from '../stage/options'
-import type { WorkspaceData } from '../stage/types'
+import type { ReceivedPacket, WorkspaceData } from '../stage/types'
 import { PacketAnalyzer } from './PacketAnalyzer'
 import { PacketComposer } from './PacketComposer'
 import { PacketOverview } from './PacketViews'
@@ -18,11 +25,10 @@ type Props = {
   rawActionButtons?: unknown
 }
 
-// ステージの作業画面。左にタブ切替のテーブル、右に受信パケットと作業枠を並べる。画面の状態はここで持つ
+// ステージの作業画面。左にタブ切替のテーブル、右にパケット受信とパケット送信の枠を並べる。画面の状態はここで持つ
 export function StageWorkspace({ workspace, rawOptions, rawActionButtons }: Props) {
   const options = useMemo(() => resolveOptions(rawOptions), [rawOptions])
   const buttonIds = useMemo(() => resolveActionButtons(rawActionButtons), [rawActionButtons])
-  const isAutoFilled = useMemo(() => createIsAutoFilled(options.packet_auto_fields), [options])
 
   // やることリストのボタンがあるときだけ、はじめにやることリストを出す
   const [view, setView] = useState<WorkView>(() => (buttonIds.includes('todo_list') ? { kind: 'todo' } : { kind: 'none' }))
@@ -32,14 +38,24 @@ export function StageWorkspace({ workspace, rawOptions, rawActionButtons }: Prop
   const [analyzedLayers, setAnalyzedLayers] = useState<Record<string, ProtocolId[]>>({})
   // 作業ボタンごとの作成中のパケット
   const [drafts, setDrafts] = useState<Partial<Record<ActionButtonId, PacketDraft>>>({})
+  // パケット受信の枠で解析画面を開いているパケット。戻るボタンで一覧に戻す（パケット送信の枠の操作とは関係なく残す）
+  const [openedPacketId, setOpenedPacketId] = useState<string | null>(null)
 
-  // パケット作成のボタンと、その作成中のパケット
+  // パケット作成のボタンと、その作成中のパケット・項目ごとの編集の可否
   const composeButtons = buttonIds.flatMap((id) => {
     const settings = COMPOSE_SETTINGS[id]
-    return settings ? [{ id, label: ACTION_BUTTON_LABELS[id], settings, draft: drafts[id] ?? createDraft(settings) }] : []
+    if (!settings) return []
+    const isEditable = createIsEditable(options.packet_editable_fields[id])
+    const isAutoFilled = createIsAutoFilled(options.packet_auto_fields, isEditable)
+    return [{ id, label: ACTION_BUTTON_LABELS[id], settings, draft: drafts[id] ?? createDraft(settings), isEditable, isAutoFilled }]
   })
 
-  const selectedPacket = view.kind === 'analyze' ? workspace.packets.find((packet) => packet.id === view.packetId) : undefined
+  const openedPacket = workspace.packets.find((packet) => packet.id === openedPacketId)
+  const getAnalyzedLayers = (packet: ReceivedPacket) =>
+    analyzedLayers[packet.id] ?? getInitialAnalyzedLayers(packet.hex, options.analysis_auto_layers)
+  const completedPacketIds = workspace.packets
+    .filter((packet) => isAnalysisComplete(packet.hex, getAnalyzedLayers(packet)))
+    .map((packet) => packet.id)
   const selectedCompose = view.kind === 'compose' ? composeButtons.find((button) => button.id === view.buttonId) : undefined
 
   const visibleTables = options.visible_tables.map((id: TableId) => ({
@@ -69,8 +85,21 @@ export function StageWorkspace({ workspace, rawOptions, rawActionButtons }: Prop
       <VStack align="stretch" gap="4" minW="0" minH="0">
         <ReceivedPacketsPanel
           packets={workspace.packets}
-          selectedId={selectedPacket?.id ?? null}
-          onSelect={(packet) => setView({ kind: 'analyze', packetId: packet.id })}
+          selectedId={openedPacket?.id ?? null}
+          completedIds={completedPacketIds}
+          onSelect={(packet) => setOpenedPacketId(packet.id)}
+          detail={
+            openedPacket && (
+              // key でパケットごとに注意メッセージをリセットする
+              <PacketAnalyzer
+                key={openedPacket.id}
+                packet={openedPacket}
+                analyzedLayers={getAnalyzedLayers(openedPacket)}
+                onAnalyze={(layers) => setAnalyzedLayers((previous) => ({ ...previous, [openedPacket.id]: layers }))}
+                onBack={() => setOpenedPacketId(null)}
+              />
+            )
+          }
         />
         <WorkPanel
           buttonIds={buttonIds}
@@ -78,26 +107,17 @@ export function StageWorkspace({ workspace, rawOptions, rawActionButtons }: Prop
           view={view}
           onChangeView={setView}
           detail={
-            selectedPacket ? (
-              // key でパケットごとに注意メッセージをリセットする
-              <PacketAnalyzer
-                key={selectedPacket.id}
-                packet={selectedPacket}
-                analyzedLayers={
-                  analyzedLayers[selectedPacket.id] ?? getInitialAnalyzedLayers(selectedPacket.hex, options.analysis_auto_layers)
-                }
-                onAnalyze={(layers) => setAnalyzedLayers((previous) => ({ ...previous, [selectedPacket.id]: layers }))}
-              />
-            ) : selectedCompose ? (
+            selectedCompose ? (
               <PacketComposer
                 label={selectedCompose.label}
                 settings={selectedCompose.settings}
                 draft={selectedCompose.draft}
                 onChange={(draft) => setDrafts((previous) => ({ ...previous, [selectedCompose.id]: draft }))}
-                isAutoFilled={isAutoFilled}
+                isAutoFilled={selectedCompose.isAutoFilled}
+                isEditable={selectedCompose.isEditable}
               />
             ) : view.kind === 'packet_overview' ? (
-              <PacketOverview drafts={composeButtons} isAutoFilled={isAutoFilled} />
+              <PacketOverview drafts={composeButtons} />
             ) : null
           }
         />

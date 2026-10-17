@@ -1,4 +1,4 @@
-import { Heading, HStack, Spinner, Text, VStack } from '@chakra-ui/react'
+import { Heading, HStack, Popover, Portal, Spinner, Text, VStack } from '@chakra-ui/react'
 import { useMemo } from 'react'
 import { Navigate, useParams } from 'react-router'
 import { PageLayout } from '../components/PageLayout'
@@ -44,9 +44,34 @@ export function StagePage() {
               {stage.title}
             </Heading>
           </HStack>
-          <Text fontSize="xs" color="gray.600">
-            {stage.description}
-          </Text>
+          {/* 説明は1行に収め、はみ出す分は「…」で省略する。クリックすると全文を出す */}
+          <Popover.Root positioning={{ placement: 'bottom-end' }}>
+            <Popover.Trigger asChild>
+              <Text
+                as="button"
+                display="block"
+                maxW="full"
+                truncate
+                fontSize="xs"
+                color="gray.600"
+                textAlign="right"
+                cursor="pointer"
+                _hover={{ color: 'gray.800' }}
+              >
+                {stage.description}
+              </Text>
+            </Popover.Trigger>
+            <Portal>
+              <Popover.Positioner>
+                <Popover.Content maxW="sm">
+                  <Popover.Arrow />
+                  <Popover.Body fontSize="sm" color="gray.700">
+                    {stage.description}
+                  </Popover.Body>
+                </Popover.Content>
+              </Popover.Positioner>
+            </Portal>
+          </Popover.Root>
         </VStack>
       }
     >

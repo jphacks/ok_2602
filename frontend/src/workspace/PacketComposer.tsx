@@ -9,7 +9,7 @@ import {
   type FieldDefinition,
   type ProtocolId,
 } from '../packet/protocols'
-import { buildDraft, type ComposeSettings, type IsAutoFilled, type PacketDraft } from '../packet/steps'
+import { buildDraft, type ComposeSettings, type IsAutoFilled, type IsEditable, type PacketDraft } from '../packet/steps'
 import { FieldRow, HexDump, LayerCard } from './PacketViews'
 
 type Props = {
@@ -18,6 +18,7 @@ type Props = {
   draft: PacketDraft
   onChange: (draft: PacketDraft) => void
   isAutoFilled: IsAutoFilled
+  isEditable: IsEditable
 }
 
 // 入力欄の例（具体的なアドレスではなく形式だけ示す）
@@ -30,7 +31,7 @@ function getPlaceholder(field: FieldDefinition) {
 }
 
 // 送信するパケットを高レイヤ→低レイヤの順にヘッダを付与して組み立てる
-export function PacketComposer({ label, settings, draft, onChange, isAutoFilled }: Props) {
+export function PacketComposer({ label, settings, draft, onChange, isAutoFilled, isEditable }: Props) {
   const { upper } = settings
   const { attached } = draft
   const packet = buildDraft(settings, draft, isAutoFilled)
@@ -83,7 +84,7 @@ export function PacketComposer({ label, settings, draft, onChange, isAutoFilled 
         </Button>
       </HStack>
 
-      {/* フレーム上の並び（Ethernet が先頭）で入力欄を出す。自動入力の項目は値だけ表示する */}
+      {/* フレーム上の並び（Ethernet が先頭）で入力欄を出す。自動入力・編集できない項目は値だけ表示する */}
       {[...attached].reverse().map((protocol) => (
         <LayerCard key={protocol} title={PROTOCOLS[protocol].name} colorPalette={PROTOCOLS[protocol].colorPalette} bg="white">
           {PROTOCOLS[protocol].fields.map((field) => {
@@ -93,6 +94,10 @@ export function PacketComposer({ label, settings, draft, onChange, isAutoFilled 
                 {isAutoFilled(protocol, field) ? (
                   <Text fontSize="sm" fontFamily="mono" color="gray.500">
                     {getAutoValue(protocol, field)}（自動）
+                  </Text>
+                ) : !isEditable(`${protocol}.${field.key}`) ? (
+                  <Text fontSize="sm" fontFamily="mono" color="gray.500">
+                    {value}（固定）
                   </Text>
                 ) : (
                   <Input
@@ -113,13 +118,15 @@ export function PacketComposer({ label, settings, draft, onChange, isAutoFilled 
       {upper === 'ipv4' && (
         <Field.Root invalid={!packet.payload}>
           <Field.Label fontSize="sm" color="gray.700">
-            データ（16進数）
+            データ（16進数）{!isEditable('payload') && '（固定）'}
           </Field.Label>
           <Textarea
             size="sm"
             bg="white"
             fontFamily="mono"
             rows={2}
+            readOnly={!isEditable('payload')}
+            color={isEditable('payload') ? undefined : 'gray.500'}
             value={draft.payloadText}
             onChange={(event) => onChange({ ...draft, payloadText: event.target.value })}
           />

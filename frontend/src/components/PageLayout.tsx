@@ -49,7 +49,7 @@ export function PageLayout({ children, back, topRight, background, fitViewport =
           position="absolute"
           top={{ base: '4', md: '6' }}
           right={{ base: '4', md: '6' }}
-          maxW={{ base: '55%', md: 'md' }}
+          maxW={{ base: '55%', md: 'md', lg: 'xl' }}
           zIndex="1"
         >
           {topRight}

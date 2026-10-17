@@ -37,7 +37,11 @@
     ]
   },
   "options": {
-    "routing_table_edit": false
+    "routing_table_edit": false,
+    "packet_editable_fields": {
+      "ping request": ["ethernet.src", "ethernet.dst", "ipv4.src", "ipv4.dst"],
+      "ping response": ["ethernet.src", "ethernet.dst", "ipv4.src", "ipv4.dst"]
+    }
   },
-  "action_buttons": ["arp request", "arp response", "packet all view", "todo list"]
+  "action_buttons": ["ping request", "ping response", "packet all view", "todo list"]
 }
