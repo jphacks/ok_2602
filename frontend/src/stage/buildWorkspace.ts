@@ -2,7 +2,7 @@ import { TABLE_TEMPLATES, WORKSPACE_TODOS } from '../data/workspaceText'
 import { formatHex, formatIpv4, formatMac, parseHex, parseIpv4, parseMac } from '../packet/bytes'
 import { buildLayer } from '../packet/protocols'
 import { ICMP_ECHO } from './actionButtons'
-import type { Node, ReceivedPacket, Stage, WorkspaceData } from './types'
+import type { Edge, Node, PortEndpoint, ReceivedPacket, RouterInfo, Stage, WorkspaceData } from './types'
 
 // ステージ情報（topology）から作業画面のデータを作る。
 // プレイヤーが操作するのは topology の最初のルータ。ルータがなければ null
@@ -39,6 +39,28 @@ const getInterfaces = (node: Node): Interface[] =>
     const mac = parseMac(port.mac)
     return cidr && mac ? [{ name: port.id, mac: formatMac(mac), ...cidr }] : []
   })
+
+// ルータの各インターフェースのアドレスと、edges からわかる接続先
+function buildRouterInfo(node: Node, router: Interface[], edges: Edge[]): RouterInfo {
+  const getNeighbor = (portId: string) => {
+    const isSelf = (end: PortEndpoint) => end.node_id === node.id && end.port_id === portId
+    const edge = edges.find((candidate) => isSelf(candidate.source) || isSelf(candidate.target))
+    if (!edge) return ''
+    const other = isSelf(edge.source) ? edge.target : edge.source
+    return `${other.node_id} の ${other.port_id}`
+  }
+  return {
+    name: node.id,
+    interfaces: router.map((iface) => ({
+      name: iface.name,
+      address: `${formatIpv4(iface.ip)}/${iface.prefix}`,
+      subnetMask: formatIpv4(getNetworkAddress([255, 255, 255, 255], iface.prefix)),
+      network: `${formatIpv4(getNetworkAddress(iface.ip, iface.prefix))}/${iface.prefix}`,
+      mac: iface.mac,
+      neighbor: getNeighbor(iface.name),
+    })),
+  }
+}
 
 // 受信パケットの仮データ（WebSocket でサーバーから届くようになるまでの代わり）。
 // ルータにつながる各PCからゲートウェイへの ARP リクエストと、別のネットワークの PC 宛ての ICMP を作る
@@ -87,6 +109,7 @@ export function buildWorkspace(stage: Stage): WorkspaceData | null {
   const hosts = nodes.filter((node) => node.type === 'pc').flatMap(getInterfaces)
 
   return {
+    router: buildRouterInfo(routerNode, router, stage.topology?.edges ?? []),
     tables: {
       // はじめは直接つながっているネットワーク（C）と自分のアドレス（L）だけ
       routing: {

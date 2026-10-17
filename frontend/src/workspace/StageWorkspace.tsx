@@ -16,6 +16,7 @@ import { PacketAnalyzer } from './PacketAnalyzer'
 import { PacketComposer } from './PacketComposer'
 import { PacketOverview } from './PacketViews'
 import { TablePanel } from './TablePanel'
+import { RouterInfoView } from './RouterInfoView'
 import { ReceivedPacketsPanel, WorkPanel, type WorkView } from './WorkPanel'
 
 type Props = {
@@ -118,6 +119,8 @@ export function StageWorkspace({ workspace, rawOptions, rawActionButtons }: Prop
               />
             ) : view.kind === 'packet_overview' ? (
               <PacketOverview drafts={composeButtons} />
+            ) : view.kind === 'router_info' ? (
+              <RouterInfoView router={workspace.router} />
             ) : null
           }
         />
