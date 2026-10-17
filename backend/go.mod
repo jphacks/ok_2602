@@ -5,6 +5,7 @@ go 1.26.8
 require (
 	github.com/gin-contrib/cors v1.7.9
 	github.com/gin-gonic/gin v1.12.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/lib/pq v1.12.3
 )
 

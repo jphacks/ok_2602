@@ -1,13 +1,14 @@
 package main
 
 import (
-	"time"
 	"log"
-	"github.com/gin-gonic/gin"
-	"github.com/gin-contrib/cors"
-	// モジュール名に合わせてパスを指定
+	"time"
+
 	"backend/api"
 	"backend/db"
+
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -17,39 +18,27 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// Ginルーターの設定
 	r := gin.Default()
 
 	r.Use(cors.New(cors.Config{
-		// 許可するフロントエンドのオリジン（React開発サーバーのURL）
 		AllowOrigins: []string{
-			"http://localhost:5173", // Viteデフォルト
+			"http://localhost:5173",
 			"http://127.0.0.1:5173",
-			"http://192.168.64.4:5173", // Create React Appデフォルト
+			"http://192.168.64.4:5173",
 		},
-		// 許可するHTTPメソッド
-		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		// 許可するリクエストヘッダー
-		AllowHeaders: []string{
-			"Access-Control-Allow-Credentials",
-			"Access-Control-Allow-Headers",
-			"Content-Type",
-			"Content-Length",
-			"Accept-Encoding",
-			"Authorization",
-		},
-		// Cookieや認証情報を伴うリクエストを許可する場合
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		AllowCredentials: true,
-		// プリフライトリクエスト（OPTIONS）の結果をキャッシュする時間
-		MaxAge: 12 * time.Hour,
+		MaxAge:           12 * time.Hour,
 	}))
 
-	// APIルーティング
-	// apiパッケージのエクスポートされた関数をハンドラーとして登録
+	// REST API
 	r.GET("/getstages", api.GetStages)
 	r.GET("/getstages/:stageID", api.GetStageByID)
 
-	// サーバー起動
+	// WebSocket エンドポイント (ステージIDごとに接続を分岐)
+	r.GET("/ws/:stageID", api.HandleWebSocket)
+
 	log.Println("Server is running on http://localhost:8080")
 	if err := r.Run(":8080"); err != nil {
 		log.Fatalf("Failed to run server: %v", err)
