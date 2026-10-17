@@ -1,7 +1,7 @@
 import { Box, Center, VStack } from '@chakra-ui/react'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
-import SecondaryButton from './SecondaryButton'
+import { SecondaryButton } from './ui'
 
 type Props = {
   children: ReactNode
@@ -18,7 +18,8 @@ type Props = {
   fitViewport?: boolean
 }
 
-function PageLayout({ children, back, topRight, background, fitViewport = false }: Props) {
+// 全画面共通の枠（縦中央寄せ・背景グラデーション・左上の戻るボタン・右上の情報）
+export function PageLayout({ children, back, topRight, background, fitViewport = false }: Props) {
   const navigate = useNavigate()
 
   return (
@@ -68,4 +69,3 @@ function PageLayout({ children, back, topRight, background, fitViewport = false 
   )
 }
 
-export default PageLayout

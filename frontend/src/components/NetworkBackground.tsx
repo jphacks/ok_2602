@@ -1,11 +1,11 @@
 import { Box } from '@chakra-ui/react'
 
 // Chakra のカラートークンを SVG の style で使うためのヘルパー
-const token = (name: string) => `var(--chakra-colors-${name.replace('.', '-')})`
+const getColorVar = (name: string) => `var(--chakra-colors-${name.replace('.', '-')})`
 
 type NodeType = 'router' | 'switch' | 'pc'
 
-type BgNode = {
+type BackgroundNode = {
   id: string
   type: NodeType
   x: number
@@ -13,7 +13,7 @@ type BgNode = {
 }
 
 // 1200x800 の座標系に配置した装飾用のネットワーク。中央はテキスト用に空けている
-const NODES: BgNode[] = [
+const NODES: BackgroundNode[] = [
   { id: 'r1', type: 'router', x: 190, y: 200 },
   { id: 'r2', type: 'router', x: 1010, y: 190 },
   { id: 'r3', type: 'router', x: 1030, y: 610 },
@@ -49,30 +49,30 @@ const LINKS: [string, string][] = [
 
 // パケットが流れるリンク（送信元 → 宛先）と色・速さ
 const PACKETS = [
-  { from: 'p2', to: 's1', color: 'orange.400', dur: 2.4, begin: 0 },
-  { from: 's1', to: 'r1', color: 'orange.400', dur: 2.4, begin: 1.2 },
-  { from: 'r1', to: 'r2', color: 'teal.500', dur: 5, begin: 0.5 },
-  { from: 'r2', to: 'p4', color: 'teal.500', dur: 2.6, begin: 2 },
-  { from: 'r3', to: 's2', color: 'orange.400', dur: 3, begin: 1 },
-  { from: 'p6', to: 'r4', color: 'blue.400', dur: 3.2, begin: 0.3 },
-  { from: 'r4', to: 'r1', color: 'blue.400', dur: 3.2, begin: 1.8 },
-  { from: 'p5', to: 'r3', color: 'teal.500', dur: 2.2, begin: 2.5 },
+  { from: 'p2', to: 's1', color: 'orange.400', duration: 2.4, begin: 0 },
+  { from: 's1', to: 'r1', color: 'orange.400', duration: 2.4, begin: 1.2 },
+  { from: 'r1', to: 'r2', color: 'teal.500', duration: 5, begin: 0.5 },
+  { from: 'r2', to: 'p4', color: 'teal.500', duration: 2.6, begin: 2 },
+  { from: 'r3', to: 's2', color: 'orange.400', duration: 3, begin: 1 },
+  { from: 'p6', to: 'r4', color: 'blue.400', duration: 3.2, begin: 0.3 },
+  { from: 'r4', to: 'r1', color: 'blue.400', duration: 3.2, begin: 1.8 },
+  { from: 'p5', to: 'r3', color: 'teal.500', duration: 2.2, begin: 2.5 },
 ]
 
 const nodeById = new Map(NODES.map((node) => [node.id, node]))
-const pos = (id: string) => nodeById.get(id)!
+const getPosition = (id: string) => nodeById.get(id)!
 
-function NodeShape({ node }: { node: BgNode }) {
+function NodeShape({ node }: { node: BackgroundNode }) {
   const { x, y, type } = node
-  const stroke = { stroke: token('green.300'), strokeWidth: 2 }
+  const strokeStyle = { stroke: getColorVar('green.300'), strokeWidth: 2 }
 
   if (type === 'router') {
     return (
       <g>
-        <circle cx={x} cy={y} r="22" style={{ fill: token('white'), ...stroke }} />
+        <circle cx={x} cy={y} r="22" style={{ fill: getColorVar('white'), ...strokeStyle }} />
         <path
           d={`M${x - 10} ${y - 5} h9 l-3 -3 m3 3 l-3 3 M${x + 10} ${y + 5} h-9 l3 -3 m-3 3 l3 3`}
-          style={{ fill: 'none', stroke: token('green.500'), strokeWidth: 2, strokeLinecap: 'round' }}
+          style={{ fill: 'none', stroke: getColorVar('green.500'), strokeWidth: 2, strokeLinecap: 'round' }}
         />
       </g>
     )
@@ -80,24 +80,24 @@ function NodeShape({ node }: { node: BgNode }) {
   if (type === 'switch') {
     return (
       <g>
-        <rect x={x - 28} y={y - 11} width="56" height="22" rx="4" style={{ fill: token('white'), ...stroke }} />
-        {[-16, -6, 4, 14].map((dx) => (
-          <rect key={dx} x={x + dx - 3} y={y - 3} width="6" height="6" rx="1" style={{ fill: token('green.200') }} />
+        <rect x={x - 28} y={y - 11} width="56" height="22" rx="4" style={{ fill: getColorVar('white'), ...strokeStyle }} />
+        {[-16, -6, 4, 14].map((offsetX) => (
+          <rect key={offsetX} x={x + offsetX - 3} y={y - 3} width="6" height="6" rx="1" style={{ fill: getColorVar('green.200') }} />
         ))}
       </g>
     )
   }
   return (
     <g>
-      <rect x={x - 18} y={y - 14} width="36" height="24" rx="3" style={{ fill: token('white'), ...stroke }} />
-      <rect x={x - 12} y={y - 9} width="24" height="14" rx="1.5" style={{ fill: token('green.50') }} />
-      <rect x={x - 9} y={y + 13} width="18" height="3" rx="1.5" style={{ fill: token('green.300') }} />
+      <rect x={x - 18} y={y - 14} width="36" height="24" rx="3" style={{ fill: getColorVar('white'), ...strokeStyle }} />
+      <rect x={x - 12} y={y - 9} width="24" height="14" rx="1.5" style={{ fill: getColorVar('green.50') }} />
+      <rect x={x - 9} y={y + 13} width="18" height="3" rx="1.5" style={{ fill: getColorVar('green.300') }} />
     </g>
   )
 }
 
-function NetworkBackground() {
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+export function NetworkBackground() {
+  const isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
   return (
     <Box position="absolute" inset="0" pointerEvents="none" aria-hidden="true">
@@ -108,18 +108,18 @@ function NetworkBackground() {
         preserveAspectRatio="xMidYMid slice"
         role="presentation"
       >
-        {LINKS.map(([a, b]) => (
+        {LINKS.map(([from, to]) => (
           <line
-            key={`${a}-${b}`}
-            x1={pos(a).x}
-            y1={pos(a).y}
-            x2={pos(b).x}
-            y2={pos(b).y}
-            style={{ stroke: token('green.200'), strokeWidth: 2, strokeDasharray: '6 8' }}
+            key={`${from}-${to}`}
+            x1={getPosition(from).x}
+            y1={getPosition(from).y}
+            x2={getPosition(to).x}
+            y2={getPosition(to).y}
+            style={{ stroke: getColorVar('green.200'), strokeWidth: 2, strokeDasharray: '6 8' }}
           />
         ))}
-        {!reduceMotion &&
-          PACKETS.map(({ from, to, color, dur, begin }) => (
+        {!isReducedMotion &&
+          PACKETS.map(({ from, to, color, duration, begin }) => (
             <rect
               key={`${from}-${to}`}
               x="-8"
@@ -127,11 +127,11 @@ function NetworkBackground() {
               width="16"
               height="10"
               rx="2"
-              style={{ fill: token(color), stroke: token('white'), strokeWidth: 1.5 }}
+              style={{ fill: getColorVar(color), stroke: getColorVar('white'), strokeWidth: 1.5 }}
             >
               <animateMotion
-                path={`M${pos(from).x} ${pos(from).y} L${pos(to).x} ${pos(to).y}`}
-                dur={`${dur}s`}
+                path={`M${getPosition(from).x} ${getPosition(from).y} L${getPosition(to).x} ${getPosition(to).y}`}
+                dur={`${duration}s`}
                 begin={`${begin}s`}
                 repeatCount="indefinite"
               />
@@ -145,10 +145,9 @@ function NetworkBackground() {
       <Box
         position="absolute"
         inset="0"
-        bgImage={`radial-gradient(ellipse 55% 50% at center, ${token('gray.50')} 35%, transparent 100%)`}
+        bgImage={`radial-gradient(ellipse 55% 50% at center, ${getColorVar('gray.50')} 35%, transparent 100%)`}
       />
     </Box>
   )
 }
 
-export default NetworkBackground

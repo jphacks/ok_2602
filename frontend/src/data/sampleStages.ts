@@ -1,6 +1,6 @@
-import type { Edge, Node, Stage } from '../types/stage'
+import type { Edge, Node, Stage } from '../stage/types'
 
-// バックエンドの /getstages が使えない間の代替データ
+// サーバーにつながらないときに使う、ステージ一覧のサンプルデータ
 
 const pc = (id: string, ip: string, mac: string): Node => ({
   id,
@@ -38,11 +38,13 @@ const link = (
   target: { node_id: targetNode, port_id: targetPort },
 })
 
-export const DUMMY_STAGES: Stage[] = [
+export const SAMPLE_STAGES: Stage[] = [
   {
     id: 'stage-1',
     title: '基本接続演習',
     description: '2台のPCをケーブルでつないで通信してみよう。',
+    options: {},
+    action_buttons: [],
     topology: {
       nodes: [
         pc('pc1', '192.168.1.1', '00:00:00:00:01:01'),
@@ -55,6 +57,8 @@ export const DUMMY_STAGES: Stage[] = [
     id: 'stage-2',
     title: 'スイッチで接続',
     description: 'スイッチを使って3台のPCを同じネットワークにつなごう。',
+    options: {},
+    action_buttons: [],
     topology: {
       nodes: [
         pc('pc1', '192.168.1.1', '00:00:00:00:02:01'),
@@ -73,6 +77,8 @@ export const DUMMY_STAGES: Stage[] = [
     id: 'stage-3',
     title: 'IPアドレスの設定',
     description: '正しいIPアドレスを設定して通信できるようにしよう。',
+    options: {},
+    action_buttons: [],
     topology: {
       nodes: [
         pc('pc1', '192.168.1.1', '00:00:00:00:03:01'),
@@ -89,6 +95,8 @@ export const DUMMY_STAGES: Stage[] = [
     id: 'stage-4',
     title: 'サブネットを理解しよう',
     description: '同じネットワークかどうかをサブネットで見分けよう。',
+    options: {},
+    action_buttons: [],
     topology: {
       nodes: [
         pc('pc1', '192.168.1.10', '00:00:00:00:04:01'),
@@ -105,6 +113,8 @@ export const DUMMY_STAGES: Stage[] = [
     id: 'stage-5',
     title: 'MACアドレスとARP',
     description: 'IPアドレスからMACアドレスを調べるしくみを学ぼう。',
+    options: {},
+    action_buttons: [],
     topology: {
       nodes: [
         pc('pc1', '192.168.1.1', '00:00:00:00:05:01'),
@@ -121,6 +131,8 @@ export const DUMMY_STAGES: Stage[] = [
     id: 'stage-6',
     title: 'ルーターで接続',
     description: 'ルーターを使って2つのネットワークをつなごう。',
+    options: {},
+    action_buttons: [],
     topology: {
       nodes: [
         pc('pc1', '192.168.1.10', '00:00:00:00:06:01'),
@@ -137,6 +149,8 @@ export const DUMMY_STAGES: Stage[] = [
     id: 'stage-7',
     title: 'デフォルトゲートウェイ',
     description: '別のネットワークへの出口を設定しよう。',
+    options: {},
+    action_buttons: [],
     topology: {
       nodes: [
         pc('pc1', '192.168.1.10', '00:00:00:00:07:01'),
@@ -155,6 +169,8 @@ export const DUMMY_STAGES: Stage[] = [
     id: 'stage-8',
     title: '複数スイッチの構成',
     description: 'スイッチ同士をつないでネットワークを広げよう。',
+    options: {},
+    action_buttons: [],
     topology: {
       nodes: [
         pc('pc1', '192.168.1.1', '00:00:00:00:08:01'),
@@ -173,6 +189,8 @@ export const DUMMY_STAGES: Stage[] = [
     id: 'stage-9',
     title: 'ルーティング',
     description: '2台のルーターを経由してパケットを届けよう。',
+    options: {},
+    action_buttons: [],
     topology: {
       nodes: [
         pc('pc1', '192.168.1.10', '00:00:00:00:09:01'),
@@ -191,6 +209,8 @@ export const DUMMY_STAGES: Stage[] = [
     id: 'stage-10',
     title: '総合演習',
     description: 'これまでの知識を使ってネットワーク全体を完成させよう。',
+    options: {},
+    action_buttons: [],
     topology: {
       nodes: [
         pc('pc1', '192.168.1.10', '00:00:00:00:10:01'),

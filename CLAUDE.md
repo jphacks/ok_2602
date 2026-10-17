@@ -12,7 +12,7 @@ Three independent parts, each in its own directory with no shared tooling at the
 - `backend/` — Go + Gin HTTP server (currently only `GET /ping`)
 - `database/` — PostgreSQL 16 via Docker Compose
 
-The frontend calls the backend's `GET /getstages` (not implemented yet; the backend must also allow CORS from the Vite origin). The backend has no DB connection yet. Don't modify `backend/` unless asked.
+The frontend calls the backend's `GET /getstages` (stage list: id / title / description only) and `GET /getstages/:stageID` (one stage with `topology`). The backend has no DB connection yet. Don't modify `backend/` unless asked.
 
 ## Commands
 
@@ -45,14 +45,28 @@ Requires `POSTGRES_PASSWORD` in `database/.env` (gitignored). `init.sql` runs on
 
 ## Frontend structure
 
-- `src/main.tsx` wraps the app in `BrowserRouter`; `src/App.tsx` holds the `<Routes>` table — add new screens there.
-- Screens live in `src/pages/`: `Home` (`/`) → `Stages` (`/stages`, grid of stage cards) → `Stage` (`/stages/:stageId`, `stageId` is `Stage.id`; unknown ids redirect to `/stages`).
-- Stage data comes from the backend: `src/api/stages.ts` does `GET http://localhost:8080/getstages`, which returns a JSON `Stage[]`. Types in `src/types/stage.ts` mirror the Go structs in the backend `model` package (snake_case JSON keys like `node_id` are intentional) — keep both sides in sync.
-- `src/hooks/useStages.ts` fetches the list; if the request fails (backend not implemented yet / CORS), it falls back to `src/data/dummyStages.ts` and pages show `DummyDataNotice`. The stage number shown in the UI is the array index + 1, not part of the data.
-- Buttons are shared components in `src/components/`: `PrimaryButton` (green main action), `SecondaryButton` (outline, used for back navigation), `StageButton` (stage card: number / title / separator / description). Reuse these instead of styling `Button` inline in pages.
-- Pages wrap their content in `src/components/PageLayout.tsx` (full-height centered column, light green→gray background gradient). Pass `back={{ to, label }}` for the top-left back button (don't put back buttons at the bottom of pages) and `background` for a decorative layer (Home uses `NetworkBackground`, an animated SVG network).
+Naming rules are in `frontend/NAMING.md` — follow them (named exports only, fixed verbs like `parse`/`format`/`build`/`resolve`, no abbreviations). Directories are at most one level below `src/`:
+
+| Directory | Contents |
+|---|---|
+| `main.tsx` | entry + `<Routes>` table — add new screens here |
+| `pages/` | one file per route: `HomePage` (`/`) → `StageListPage` (`/stages`) → `StagePage` (`/stages/:stageId`, unknown ids redirect to `/stages`) |
+| `components/` | shared UI: `PageLayout`, `NetworkBackground`, and `ui.tsx` (`PrimaryButton`, `SecondaryButton`, `ToggleButton`, `StageButton`, `Panel`, `SampleDataBadge`) |
+| `workspace/` | stage play screen (router workspace), state held in `StageWorkspace` |
+| `packet/` | packet logic without UI: `bytes.ts` (hex/MAC/IPv4 conversion), `protocols.ts` (header field definitions + `parseLayer` / `buildLayer`), `steps.ts` (compose drafts, analysis progress) |
+| `stage/` | stage data: `types.ts`, `api.ts` (fetch + `useStages` / `useStageDetail`), `options.ts`, `actionButtons.ts`, `buildWorkspace.ts` |
+| `data/` | fixed data: `sampleStages.ts` (fallback list), `workspaceText.ts` (table titles/columns/help, to-do list) |
+| `test-data/` | temporary test stage JSON — delete it with the `TEST_STAGES` line in `stage/api.ts` |
+
+- Stage data comes from the backend: `GET /getstages` (list) and `GET /getstages/:stageID` (detail with `topology`, loaded only when the list entry lacks it). `stage/types.ts` mirrors the Go structs in the backend `model` package (snake_case JSON keys like `node_id` are intentional) — keep both sides in sync. If the list request fails, `useStages` falls back to `data/sampleStages.ts` and pages show `SampleDataBadge`. The stage number shown in the UI is the array index + 1.
+- `stage/buildWorkspace.ts` builds the workspace from the topology: the first router is the player; tables start with its connected/local routes and own ARP entries; received packets are sample frames generated from the topology until the WebSocket exists. Stages without a router show 「準備中」. Don't hard-code IP/MAC addresses — derive them from stage data or user input.
+- Workspace layout: left = `TablePanel` (routing / ARP / MAC tables as tabs, Cisco `show`-style columns, scroll inside the frame, `?` help popover at each tab's bottom-right, row add/edit/delete when the option allows); right = `ReceivedPacketsPanel` and `WorkPanel` (action buttons + detail area). Selecting a received packet opens `PacketAnalyzer` (raw hex → analyze Ethernet first, then IP/ARP chosen by EtherType). A compose button opens `PacketComposer` (attach IP/ARP first, then Ethernet; data part in hex; sending disabled until the backend WebSocket exists). `PacketViews.tsx` holds `HexDump`, `LayerCard`, `LayerList`, `PacketOverview`.
+- Stage options / action buttons: the stage JSON may carry `options` (object) and `action_buttons` (string array); the backend doesn't send them yet.
+  - `stage/options.ts` — `StageOptions` (type) + `DEFAULT_OPTIONS` (everything enabled, most detailed) + `resolveOptions` (reads each key explicitly, warns about unknown keys / bad values). To add an option, add one line to each of the three. Keys: `routing_table_edit` / `arp_table_edit` / `mac_table_edit`, `visible_tables`, `packet_auto_fields` (`"ipv4"` or `"ipv4.checksum"`; only non-`input` fields can be auto-filled), `analysis_auto_layers`.
+  - `stage/actionButtons.ts` — `ACTION_BUTTON_LABELS` (snake_case id → label) and `COMPOSE_SETTINGS` (settings for the packet-compose buttons); `resolveActionButtons` keeps JSON order, accepts `"arp request"`-style spelling, drops unknown ids. Empty → no buttons. What a non-compose button shows is written directly in `WorkPanel` (`getButtonView`) / `StageWorkspace`.
+  - Table edits and packet drafts are local state in `StageWorkspace` for now (to be synced over WebSocket later).
+- MAC addresses are always shown/entered as lowercase `xx:xx:xx:xx:xx:xx`.
 - `StageButton`'s card design is approved by the user — don't change it unless asked.
-- Stage play screen (router workspace) lives in `src/components/workspace/`, assembled by `StageWorkspace`: left column = three `NetworkTable`s (routing / ARP / MAC address table, Cisco `show`-style columns, scroll inside the table, `?` popover with help like the `show ip route` Codes legend), right column = `ReceivedPackets` and `WorkPanel` (action buttons + "やることリスト"; the right-hand area shows the to-do list by default, or the frame overview (`FrameView`) of a selected packet/action — per-field editing via a sub-menu is planned). Shared frame is `Panel`. Types in `src/types/workspace.ts`; currently only stage 1 renders it, with local data from `src/data/stage1Workspace.ts`.
 - Color scheme: green accent (`green.500` primary buttons with white text, `colorPalette="green"` for secondary), headings `gray.800`, body text `gray.600`.
 - UI text is in Japanese (`<html lang="ja">`).
 

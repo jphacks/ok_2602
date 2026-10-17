@@ -1,17 +1,14 @@
 import { Box, Heading, Text } from '@chakra-ui/react'
 import { useNavigate } from 'react-router'
-import NetworkBackground from '../components/NetworkBackground'
-import PageLayout from '../components/PageLayout'
-import PrimaryButton from '../components/PrimaryButton'
+import { NetworkBackground } from '../components/NetworkBackground'
+import { PageLayout } from '../components/PageLayout'
+import { PrimaryButton } from '../components/ui'
 
 // 文節の途中で改行されないよう、この単位ごとにまとめて折り返す
-const LEAD_PHRASES = [
-  'ルータになりきって、',
-  'ネットワークの流れと',
-  'パケットの構造を理解しよう！',
-]
+const LEAD_PHRASES = ['ルータになりきって、', 'ネットワークの流れと', 'パケットの構造を理解しよう！']
 
-function Home() {
+// タイトル画面（/）
+export function HomePage() {
   const navigate = useNavigate()
 
   return (
@@ -42,5 +39,3 @@ function Home() {
     </PageLayout>
   )
 }
-
-export default Home
