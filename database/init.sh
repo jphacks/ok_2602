@@ -77,4 +77,68 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "app_db" <<-EOSQL
           ]
         }'::jsonb
     );
+UPDATE stages
+SET scenario = '{
+  "scenario_id": "scenario-ping-basic",
+  "title": "PingパケットのMACアドレス書き換え演習",
+  "description": "ルーターを通過するPingリクエストおよびPingレスポンスの送信元/宛先MACアドレスを適切に書き換えて送信してください。",
+  "steps": [
+    {
+      "step": 1,
+      "type": "send",
+      "description": "初期Pingリクエストパケットを送信",
+      "packet": {
+        "hex": "02 00 00 00 01 01 02 00 00 00 01 0a 08 00 45 00 00 3c 1c 46 40 00 40 01 9a 16 c0 a8 01 0a c0 a8 02 0a 08 00 4d 5a 00 01 00 01 61 62 63 64 65 66 67 68 69 6a 6b 6c 6d 6e 6f 70 71 72 73 74 75 76 77 61 62 63 64 65 66 67 68 69",
+        "ethernet": { "dst": "02:00:00:00:01:01", "src": "02:00:00:00:01:0a", "type": 2048 },
+        "ipv4": { "ver_ihl": 69, "tos": 0, "total_length": 60, "id": 7238, "flags": 16384, "ttl": 64, "protocol": 1, "checksum": 39446, "src": "192.168.1.10", "dst": "192.168.2.10" },
+        "icmp": { "type": 8, "code": 0, "checksum": 19802, "id": 1, "seq": 1 },
+        "payload": "61 62 63 64 65 66 67 68 69 6a 6b 6c 6d 6e 6f 70 71 72 73 74 75 76 77 61 62 63 64 65 66 67 68 69"
+      }
+    },
+    {
+      "step": 2,
+      "type": "receive",
+      "description": "クライアントからの処理済みPingリクエスト受信待ち"
+    },
+    {
+      "step": 3,
+      "type": "evaluate",
+      "description": "PingリクエストのMACアドレスチェック",
+      "expected": {
+        "ethernet": { "dst": "aa:bb:cc:dd:ee:ff", "src": "02:00:00:00:01:0a" }
+      },
+      "check_fields": ["ethernet.src", "ethernet.dst"],
+      "on_failure_message": "Pingリクエストの送信元または宛先MACアドレスが違います。"
+    },
+    {
+      "step": 4,
+      "type": "send",
+      "description": "正解のため、ターゲット機器からのPing応答パケットを送信",
+      "packet": {
+        "hex": "02 00 00 00 01 0a 02 00 00 00 01 01 08 00 45 00 00 3c 1c 47 40 00 40 01 9a 15 c0 a8 02 0a c0 a8 01 0a 00 00 55 5a 00 01 00 01 61 62 63 64 65 66 67 68 69 6a 6b 6c 6d 6e 6f 70 71 72 73 74 75 76 77 61 62 63 64 65 66 67 68 69",
+        "ethernet": { "dst": "aa:bb:cc:aa:ee:ff", "src": "aa:bb:cc:dd:ee:ff", "type": 2048 },
+        "ipv4": { "ver_ihl": 69, "tos": 0, "total_length": 60, "id": 7239, "flags": 16384, "ttl": 64, "protocol": 1, "checksum": 39445, "src": "192.168.2.10", "dst": "192.168.1.10" },
+        "icmp": { "type": 0, "code": 0, "checksum": 21850, "id": 1, "seq": 1 },
+        "payload": "61 62 63 64 65 66 67 68 69 6a 6b 6c 6d 6e 6f 70 71 72 73 74 75 76 77 61 62 63 64 65 66 67 68 69"
+      }
+    },
+    {
+      "step": 5,
+      "type": "receive",
+      "description": "クライアントからの処理済みPing応答受信待ち"
+    },
+    {
+      "step": 6,
+      "type": "evaluate",
+      "description": "Ping応答のMACアドレスチェック",
+      "expected": {
+        "ethernet": { "dst": "02:00:00:00:01:0a", "src": "aa:bb:cc:dd:ee:ff" }
+      },
+      "check_fields": ["ethernet.src", "ethernet.dst"],
+      "on_failure_message": "Ping応答の送信元または宛先MACアドレスが違います。"
+    }
+  ]
+}'::jsonb,
+updated_at = CURRENT_TIMESTAMP
+WHERE id = 'stage-01';
 EOSQL
