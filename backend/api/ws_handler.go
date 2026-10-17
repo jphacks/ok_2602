@@ -32,7 +32,10 @@ func HandleWebSocket(c *gin.Context) {
 
 	var sc model.Scenario
 	if err := json.Unmarshal(scenarioRaw, &sc); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse scenario JSON"})
+	log.Printf("[WS Error] Unmarshal error: %v", err)
+    	log.Printf("[WS Error] Raw scenario data in DB: %s", string(scenarioRaw))
+
+	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse scenario JSON"})
 		return
 	}
 

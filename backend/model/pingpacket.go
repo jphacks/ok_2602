@@ -26,7 +26,7 @@ type Ipv4Json struct {
 	ToS         uint8  `json:"tos"`
 	TotalLength uint16 `json:"total_length"`
 	ID          uint16 `json:"id"`
-	Flags       uint8  `json:"flags"`
+	Flags       uint16  `json:"flags"`
 	TTL         uint8  `json:"ttl"`
 	Protocol    uint8  `json:"protocol"`
 	Checksum    uint16 `json:"checksum"`
