@@ -3,6 +3,7 @@ module backend
 go 1.26.8
 
 require (
+	github.com/gin-contrib/cors v1.7.9
 	github.com/gin-gonic/gin v1.12.0
 	github.com/lib/pq v1.12.3
 )
