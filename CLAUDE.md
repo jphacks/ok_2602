@@ -30,7 +30,8 @@ No test framework is set up.
 Backend (run inside `backend/`):
 
 ```sh
-go run .         # Gin defaults to :8080
+go run .                 # Gin defaults to :8080, DB on localhost:5432
+DB_PORT=5433 go run .    # connect to another DB container (see below)
 ```
 
 `go.mod` lists all deps as `// indirect` (including an unused mongo-driver); `go mod tidy` will clean this up.
@@ -39,9 +40,11 @@ Database (run inside `database/`):
 
 ```sh
 docker compose up -d
+# a separate container for another branch (own volume, port 5433):
+DB_CONTAINER_NAME=postgres-stage02 DB_PORT=5433 docker compose -p netsim-stage02 up -d
 ```
 
-Requires `POSTGRES_PASSWORD` in `database/.env` (gitignored). `init.sql` runs only on first volume creation and creates `test_user` / `test_password`, database `test_db`, and a sample `users` table. To re-run it, remove the `postgres_data` volume.
+Requires `POSTGRES_PASSWORD` and `BACKUSER_PASSWORD` in `database/.env` (gitignored). `init.sh` runs only on first volume creation: it creates user `backuser`, database `app_db`, the `stages` table (`topology` / `scenario` JSONB), and inserts stage-01 and stage-02. To re-run it, remove the volume (`docker compose down -v`, with the same `-p` for a separate project).
 
 ## Frontend structure
 
@@ -53,14 +56,14 @@ Naming rules are in `frontend/NAMING.md` — follow them (named exports only, fi
 | `pages/` | one file per route: `HomePage` (`/`) → `StageListPage` (`/stages`) → `StagePage` (`/stages/:stageId`, unknown ids redirect to `/stages`); `AboutPage` (`/about`, 「NetSim Labとは」: short summary + detailed how-to-play, linked from the home screen) |
 | `components/` | shared UI: `PageLayout`, `NetworkBackground`, and `ui.tsx` (`PrimaryButton`, `SecondaryButton`, `ToggleButton`, `StageButton`, `Panel`, `SampleDataBadge`) |
 | `workspace/` | stage play screen (router workspace), state held in `StageWorkspace` |
-| `packet/` | packet logic without UI: `bytes.ts` (hex/MAC/IPv4 conversion), `protocols.ts` (header field definitions + `parseLayer` / `buildLayer` / `buildPacketJson`), `steps.ts` (compose drafts, analysis progress) |
+| `packet/` | packet logic without UI: `bytes.ts` (hex/MAC/IPv4 conversion), `protocols.ts` (header definitions for Ethernet / ARP / IPv4 / UDP / RIP / RIP entry, `getUpperProtocol` (EtherType → IP protocol → UDP port), `parseLayer` / `buildLayer` / `buildPacketJson`), `steps.ts` (compose drafts, `analyzePacket`) |
 | `stage/` | stage data: `types.ts`, `api.ts` (fetch + `useStages` / `useStageDetail` + WebSocket `useStageSocket`), `options.ts`, `actionButtons.ts`, `todoList.ts`, `buildWorkspace.ts` |
 | `data/` | fixed data: `sampleStages.ts` (fallback list), `workspaceText.ts` (table titles/columns/help, to-do list), `aboutText.ts` (`AboutPage` text — keep it in sync when workspace button labels or flow change) |
 | `test-data/` | temporary test stage JSON (must be valid JSON — quote numeric keys like `"1"`) — delete it with the `TEST_STAGES` line in `stage/api.ts` |
 
 - Stage data comes from the backend: `GET /getstages` (list) and `GET /getstages/:stageID` (detail with `topology`, loaded only when the list entry lacks it). `stage/types.ts` mirrors the Go structs in the backend `model` package (snake_case JSON keys like `node_id` are intentional) — keep both sides in sync. If the list request fails, `useStages` falls back to `data/sampleStages.ts` and pages show `SampleDataBadge`. The stage number shown in the UI is the array index + 1.
 - `stage/buildWorkspace.ts` builds the workspace from the topology: the first router is the player; tables start with its connected/local routes, own ARP entries, and the `mac_table` nodes. Received packets come only from the WebSocket (no sample packets). Stages without a router show 「準備中」. Don't hard-code IP/MAC addresses — derive them from stage data or user input.
-- Workspace layout: left = `TablePanel` (routing / ARP / MAC tables as tabs, Cisco `show`-style columns, scroll inside the frame, `?` help popover at each tab's bottom-right, row add/edit/delete when the option allows); right = `ReceivedPacketsPanel` and `WorkPanel` (action buttons + detail area). The first button in `WorkPanel` is always 「ルータの情報」 (shown on every stage, independent of `action_buttons`); it opens `RouterInfoView` with the player router's interfaces (IP/prefix, subnet mask, network, MAC, neighbor from `edges`), built as `WorkspaceData.router` in `stage/buildWorkspace.ts`. Selecting a received packet opens `PacketAnalyzer` (raw hex → analyze Ethernet first, then IP/ARP chosen by EtherType). A compose button opens `PacketComposer` (attach IP/ARP first, then Ethernet; data part in hex; 「送信する」 sends it via `buildPacketJson`). `PacketViews.tsx` holds `HexDump`, `LayerCard`, `FieldRow`, `LayerList`, `PacketOverview`.
+- Workspace layout: left = `TablePanel` (routing / ARP / MAC tables as tabs, Cisco `show`-style columns, scroll inside the frame, `?` help popover at each tab's bottom-right, row add/edit/delete when the option allows); right = `ReceivedPacketsPanel` and `WorkPanel` (action buttons + detail area). The first button in `WorkPanel` is always 「ルータの情報」 (shown on every stage, independent of `action_buttons`); it opens `RouterInfoView` with the player router's interfaces (IP/prefix, subnet mask, network, MAC, neighbor from `edges`), built as `WorkspaceData.router` in `stage/buildWorkspace.ts`. Selecting a received packet opens `PacketAnalyzer` (raw hex → analyze from Ethernet upward; the next layer is decided by the lower layer's EtherType / IP protocol / UDP port, and analyzing RIP also shows every RIP entry). A compose button opens `PacketComposer` (data part first — hex, or RIP entries with add/remove — then the headers in `ComposeSettings.layers` from high to low, Ethernet last; 「送信する」 sends it via `buildPacketJson`). Routing table C / L rows show `[0/0]` (AD 0) and the `?` help lists Cisco default ADs. `PacketViews.tsx` holds `HexDump`, `LayerCard`, `FieldRow`, `LayerList`, `PacketOverview`.
 - Stage options / action buttons / to-do list: the stage JSON may carry `options` (object), `action_buttons` (string array), `todo_list` (`{ "項番": "やること" }`) and `mac_table` (node ids pre-listed in the MAC table; MAC and router port are looked up from `topology`). The backend stores them inside the `topology` JSONB column (sent as a string), so `fetchStage` in `stage/api.ts` parses `topology` and lifts them to the top level of `Stage` when missing there; test JSON has them at the top level.
   - `stage/options.ts` — `StageOptions` (type) + `DEFAULT_OPTIONS` (everything enabled, most detailed) + `resolveOptions` (reads each key explicitly, warns about unknown keys / bad values). To add an option, add one line to each of the three. Keys: `routing_table_edit` / `arp_table_edit` / `mac_table_edit`, `visible_tables`, `packet_auto_fields` (`"ipv4"` or `"ipv4.checksum"`; only non-`input` fields can be auto-filled), `analysis_auto_layers`.
   - `stage/actionButtons.ts` — `ACTION_BUTTON_LABELS` (snake_case id → label) and `COMPOSE_SETTINGS` (settings for the packet-compose buttons); `resolveActionButtons` keeps JSON order, accepts `"arp request"`-style spelling, drops unknown ids. Empty → no stage-specific buttons (the fixed 「ルータの情報」 button still shows). What a non-compose button shows is written directly in `WorkPanel` (`getButtonView`) / `StageWorkspace`.
