@@ -1,4 +1,4 @@
-import { Box, Button, Field, HStack, Input, Text, Textarea, VStack } from '@chakra-ui/react'
+import { Box, Button, Field, HStack, Input, NativeSelect, Text, Textarea, VStack } from '@chakra-ui/react'
 import { SecondaryButton } from '../components/ui'
 import {
   calculateAutoValue,
@@ -70,7 +70,7 @@ export function PacketComposer({ label, settings, draft, onChange, isAutoFilled,
     return bytes ? formatField(field, bytes) : '自動計算'
   }
 
-  // 1項目の表示。自動入力・編集できない項目は値だけ、それ以外は入力欄
+  // 1項目の表示。自動入力・編集できない項目は値だけ、決まった値しか取らない項目は選択、それ以外は入力欄
   const renderField = (protocol: ProtocolId, field: FieldDefinition, value: string, onInput: (value: string) => void) => (
     <FieldRow key={field.key} name={field.name}>
       {isAutoFilled(protocol, field) ? (
@@ -81,6 +81,24 @@ export function PacketComposer({ label, settings, draft, onChange, isAutoFilled,
         <Text fontSize="sm" fontFamily="mono" color="gray.500">
           {value}（固定）
         </Text>
+      ) : field.isChoice ? (
+        <NativeSelect.Root size="xs">
+          <NativeSelect.Field
+            fontFamily="mono"
+            bg="white"
+            aria-label={field.name}
+            value={value}
+            onChange={(event) => onInput(event.target.value)}
+          >
+            <option value="">選択してください</option>
+            {Object.entries(field.labels ?? {}).map(([number, label]) => (
+              <option key={number} value={formatNumber(field, Number(number))}>
+                {formatNumber(field, Number(number))}: {label}
+              </option>
+            ))}
+          </NativeSelect.Field>
+          <NativeSelect.Indicator />
+        </NativeSelect.Root>
       ) : (
         <Input
           size="xs"

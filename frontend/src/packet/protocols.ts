@@ -19,6 +19,8 @@ export interface FieldDefinition {
   defaultValue?: string
   // 値の意味（0x0800 → IPv4 など）
   labels?: Record<number, string>
+  // true のとき、入力欄の代わりに labels の値から選ぶ（決まった値しか取らない項目）
+  isChoice?: boolean
 }
 
 export interface ProtocolDefinition {
@@ -39,7 +41,7 @@ const field = (
   size: number,
   format: FieldDefinition['format'],
   mode: FieldDefinition['mode'],
-  extra: Pick<FieldDefinition, 'defaultValue' | 'labels'> = {},
+  extra: Pick<FieldDefinition, 'defaultValue' | 'labels' | 'isChoice'> = {},
 ): FieldDefinition => ({ key, name, offset, size, format, mode, ...extra })
 
 export const PROTOCOLS: Record<ProtocolId, ProtocolDefinition> = {
@@ -67,7 +69,7 @@ export const PROTOCOLS: Record<ProtocolId, ProtocolDefinition> = {
       field('ptype', 'プロトコルタイプ', 2, 2, 'hex', 'fixed', { defaultValue: '0x0800', labels: { 0x0800: 'IPv4' } }),
       field('hlen', 'ハードウェアアドレス長', 4, 1, 'dec', 'fixed', { defaultValue: '6' }),
       field('plen', 'プロトコルアドレス長', 5, 1, 'dec', 'fixed', { defaultValue: '4' }),
-      field('op', 'オペレーション', 6, 2, 'dec', 'input', { labels: { 1: 'Request', 2: 'Reply' } }),
+      field('op', 'オペレーション', 6, 2, 'dec', 'input', { labels: { 1: 'Request', 2: 'Reply' }, isChoice: true }),
       field('sha', '送信元MACアドレス', 8, 6, 'mac', 'input'),
       field('spa', '送信元IPアドレス', 14, 4, 'ipv4', 'input'),
       field('tha', '宛先MACアドレス', 18, 6, 'mac', 'input'),
@@ -114,8 +116,8 @@ export const PROTOCOLS: Record<ProtocolId, ProtocolDefinition> = {
     colorPalette: 'teal',
     headerLength: 4,
     fields: [
-      field('command', 'コマンド', 0, 1, 'dec', 'input', { labels: { 1: 'Request', 2: 'Response' } }),
-      field('version', 'バージョン', 1, 1, 'dec', 'input'),
+      field('command', 'コマンド', 0, 1, 'dec', 'input', { labels: { 1: 'Request', 2: 'Response' }, isChoice: true }),
+      field('version', 'バージョン', 1, 1, 'dec', 'input', { labels: { 1: 'RIPv1', 2: 'RIPv2' }, isChoice: true }),
       field('zero', '未使用', 2, 2, 'hex', 'fixed', { defaultValue: '0x0000' }),
     ],
   },
