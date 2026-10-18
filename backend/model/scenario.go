@@ -15,6 +15,7 @@ type Step struct {
 	Description      string                 `json:"description"`
 	Packet           *PacketJson            `json:"packet,omitempty"`
 	Expected         map[string]interface{} `json:"expected,omitempty"`
+	Unexpected       map[string]interface{} `json:"unexpected,omitempty"` // 配列の項目で「含まれてはいけない」要素
 	CheckFields      []string               `json:"check_fields,omitempty"`
 	OnFailureMessage string                 `json:"on_failure_message,omitempty"`
 }

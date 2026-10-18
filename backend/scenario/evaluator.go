@@ -28,6 +28,15 @@ func EvaluatePacket(actual *model.PacketJson, step model.Step) (bool, string) {
 		if !expOk {
 			continue // 期待値に設定がない場合はスキップ
 		}
+		// 配列 (rip.entries など) は、期待する要素がすべて含まれ、unexpected の要素が1つも含まれていなければ一致とする
+		if expList, isList := expVal.([]interface{}); isList {
+			actList, _ := actVal.([]interface{})
+			unexpList, _ := getNestedList(step.Unexpected, fieldPath)
+			if containsAll(actList, expList) && !containsAny(actList, unexpList) {
+				continue
+			}
+			actOk = false
+		}
 		if !actOk || actVal != expVal {
 			msg := step.OnFailureMessage
 			if msg == "" {
@@ -38,6 +47,49 @@ func EvaluatePacket(actual *model.PacketJson, step model.Step) (bool, string) {
 	}
 
 	return true, "正解です！"
+}
+
+func getNestedList(m map[string]interface{}, path string) ([]interface{}, bool) {
+	value, ok := getNestedValue(m, path)
+	list, isList := value.([]interface{})
+	return list, ok && isList
+}
+
+// item (map) に書かれたキーの値がすべて一致する要素が list にあるか
+func containsItem(list []interface{}, item interface{}) bool {
+	want, ok := item.(map[string]interface{})
+	if !ok {
+		return false
+	}
+	for _, element := range list {
+		got, ok := element.(map[string]interface{})
+		matched := ok
+		for key, value := range want {
+			matched = matched && got[key] == value
+		}
+		if matched {
+			return true
+		}
+	}
+	return false
+}
+
+func containsAll(list, items []interface{}) bool {
+	for _, item := range items {
+		if !containsItem(list, item) {
+			return false
+		}
+	}
+	return true
+}
+
+func containsAny(list, items []interface{}) bool {
+	for _, item := range items {
+		if containsItem(list, item) {
+			return true
+		}
+	}
+	return false
 }
 
 // ドット区切り文字列 ("ethernet.src" など) でネストしたMapの値を掘り下げるヘルパー関数

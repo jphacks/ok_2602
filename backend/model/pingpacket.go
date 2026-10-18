@@ -43,6 +43,31 @@ type IcmpJson struct {
 	Seq      uint16 `json:"seq"`
 }
 
+// UDP ヘッダ
+type UdpJson struct {
+	SrcPort  uint16 `json:"src_port"`
+	DstPort  uint16 `json:"dst_port"`
+	Length   uint16 `json:"length"`
+	Checksum uint16 `json:"checksum"`
+}
+
+// RIPv2 の経路エントリ
+type RipEntryJson struct {
+	Afi      uint16 `json:"afi"`
+	RouteTag uint16 `json:"route_tag"`
+	Address  string `json:"address"`
+	Mask     string `json:"mask"`
+	NextHop  string `json:"next_hop"`
+	Metric   uint32 `json:"metric"`
+}
+
+// RIPv2 メッセージ
+type RipJson struct {
+	Command uint8          `json:"command"`
+	Version uint8          `json:"version"`
+	Entries []RipEntryJson `json:"entries"`
+}
+
 // パケット全体の構造体
 type PacketJson struct {
 	Hex      string       `json:"hex"`
@@ -50,5 +75,7 @@ type PacketJson struct {
 	Arp      *ArpJson     `json:"arp,omitempty"`
 	Ipv4     *Ipv4Json    `json:"ipv4,omitempty"`
 	Icmp     *IcmpJson    `json:"icmp,omitempty"`
+	Udp      *UdpJson     `json:"udp,omitempty"`
+	Rip      *RipJson     `json:"rip,omitempty"`
 	Payload  string       `json:"payload"`
 }
