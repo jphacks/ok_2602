@@ -188,6 +188,11 @@ export function PacketComposer({ label, settings, draft, onChange, isAutoFilled,
               )}
             </LayerCard>
           ))}
+          {!packet.payload && (
+            <Text fontSize="xs" color="red.600">
+              すべてのRIPエントリを正しく入力すると、ヘッダを付与できます（不要なエントリは削除してください）
+            </Text>
+          )}
         </VStack>
       )}
 
