@@ -22,9 +22,6 @@ import { TablePanel } from './TablePanel'
 import { RouterInfoView } from './RouterInfoView'
 import { ReceivedPacketsPanel, WorkPanel, type WorkView } from './WorkPanel'
 
-// 送ったパケットの判定結果を、画面上部に数秒だけ出す
-const toaster = createToaster({ placement: 'top', duration: 5000 })
-
 type Props = {
   stageId: string
   workspace: WorkspaceData
@@ -49,6 +46,9 @@ export function StageWorkspace({ stageId, workspace, rawOptions, rawActionButton
   const [drafts, setDrafts] = useState<Partial<Record<ActionButtonId, PacketDraft>>>({})
   // 最後にパケットを送った作業ボタン
   const [sentButtonId, setSentButtonId] = useState<ActionButtonId | null>(null)
+  // 送ったパケットの判定結果を、画面上部に数秒だけ出す。表示が消える前に画面を離れても
+  // 別のステージに持ち越さないよう、作業画面ごとに作る
+  const [toaster] = useState(() => createToaster({ placement: 'top', duration: 5000 }))
   // パケットはサーバーから WebSocket で届く。判定結果は画面上部に出す
   const game = useStageSocket(stageId, ({ success, message }) => {
     toaster.create({ type: success ? 'success' : 'error', title: success ? '正解' : '不正解', description: message })
