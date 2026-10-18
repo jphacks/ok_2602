@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-JPHacks hackathon project **Packet-Crafter**: a game-like web app where the player acts as a router to learn network traffic flow and packet structure. UI design should stay fairly plain (not heavily game-styled) for now. `README.md` is the JPHacks submission template and is still unfilled.
+JPHacks hackathon project **NetSim Lab** (formerly Packet-Crafter): a game-like web app where the player acts as a router to learn network traffic flow and packet structure. UI design should stay fairly plain (not heavily game-styled) for now. `README.md` is the JPHacks submission template (partly filled in).
 
 Three independent parts, each in its own directory with no shared tooling at the root:
 
@@ -50,12 +50,12 @@ Naming rules are in `frontend/NAMING.md` — follow them (named exports only, fi
 | Directory | Contents |
 |---|---|
 | `main.tsx` | entry + `<Routes>` table — add new screens here |
-| `pages/` | one file per route: `HomePage` (`/`) → `StageListPage` (`/stages`) → `StagePage` (`/stages/:stageId`, unknown ids redirect to `/stages`) |
+| `pages/` | one file per route: `HomePage` (`/`) → `StageListPage` (`/stages`) → `StagePage` (`/stages/:stageId`, unknown ids redirect to `/stages`); `AboutPage` (`/about`, 「NetSim Labとは」: short summary + detailed how-to-play, linked from the home screen) |
 | `components/` | shared UI: `PageLayout`, `NetworkBackground`, and `ui.tsx` (`PrimaryButton`, `SecondaryButton`, `ToggleButton`, `StageButton`, `Panel`, `SampleDataBadge`) |
 | `workspace/` | stage play screen (router workspace), state held in `StageWorkspace` |
 | `packet/` | packet logic without UI: `bytes.ts` (hex/MAC/IPv4 conversion), `protocols.ts` (header field definitions + `parseLayer` / `buildLayer`), `steps.ts` (compose drafts, analysis progress) |
 | `stage/` | stage data: `types.ts`, `api.ts` (fetch + `useStages` / `useStageDetail`), `options.ts`, `actionButtons.ts`, `buildWorkspace.ts` |
-| `data/` | fixed data: `sampleStages.ts` (fallback list), `workspaceText.ts` (table titles/columns/help, to-do list) |
+| `data/` | fixed data: `sampleStages.ts` (fallback list), `workspaceText.ts` (table titles/columns/help, to-do list), `aboutText.ts` (`AboutPage` text — keep it in sync when workspace button labels or flow change) |
 | `test-data/` | temporary test stage JSON — delete it with the `TEST_STAGES` line in `stage/api.ts` |
 
 - Stage data comes from the backend: `GET /getstages` (list) and `GET /getstages/:stageID` (detail with `topology`, loaded only when the list entry lacks it). `stage/types.ts` mirrors the Go structs in the backend `model` package (snake_case JSON keys like `node_id` are intentional) — keep both sides in sync. If the list request fails, `useStages` falls back to `data/sampleStages.ts` and pages show `SampleDataBadge`. The stage number shown in the UI is the array index + 1.

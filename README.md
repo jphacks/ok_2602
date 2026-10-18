@@ -1,9 +1,9 @@
-# Net Sim Lab
+# NetSim Lab
 
 [![IMAGE ALT TEXT HERE](https://jphacks.com/wp-content/uploads/2026/07/IMG_5316.png)](https://www.youtube.com/watch?v=piaNsc6ilBI)
 
 ## 製品概要
-**Net Sim Lab**(以下、本アプリ) は **Netowork Simulator Laboratory** の略で、ネットワークのシミュレーションを勉強・研究するためのアプリであるという意味である。\
+**NetSim Lab**(以下、本アプリ) は **Network Simulator Laboratory** の略で、ネットワークのシミュレーションを勉強・研究するためのアプリであるという意味である。\
 ただ単なるネットワークのシミュレーターではなく、このアプリのメイン機能として**ネットワーク機器になりきる**という機能を提供する。
 
 ### 背景(製品開発のきっかけ、課題等）
