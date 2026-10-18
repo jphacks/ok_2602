@@ -182,9 +182,10 @@ export function StageWorkspace({ stageId, workspace, rawOptions, rawActionButton
           )}
         </Toaster>
       </Portal>
-      {/* ステージクリアのお知らせ。クリアした時点で開き、閉じた後もパケット受信の枠にクリアの表示が残る */}
+      {/* ステージクリアのお知らせ。クリアした時点で開き、閉じた後もパケット受信の枠にクリアの表示が残る。
+          直前の判定結果（トースト）を閉じたときに一緒に閉じないよう、外側のクリックでは閉じない */}
       {game.status === 'cleared' && (
-        <Dialog.Root defaultOpen placement="center">
+        <Dialog.Root defaultOpen placement="center" closeOnInteractOutside={false}>
           <Portal>
             <Dialog.Backdrop />
             <Dialog.Positioner px="4">
