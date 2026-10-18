@@ -36,10 +36,6 @@ type Props = {
 // ステージの作業画面。左にタブ切替のテーブル、右にパケット受信とパケット送信の枠を並べる。画面の状態はここで持つ
 export function StageWorkspace({ stageId, workspace, rawOptions, rawActionButtons }: Props) {
   const navigate = useNavigate()
-  // パケットはサーバーから WebSocket で届く
-  const game = useStageSocket(stageId, ({ success, message }) =>
-    toaster.create({ type: success ? 'success' : 'error', title: success ? '正解' : '不正解', description: message }),
-  )
   const options = useMemo(() => resolveOptions(rawOptions), [rawOptions])
   const buttonIds = useMemo(() => resolveActionButtons(rawActionButtons), [rawActionButtons])
 
@@ -51,6 +47,14 @@ export function StageWorkspace({ stageId, workspace, rawOptions, rawActionButton
   const [analyzedLayers, setAnalyzedLayers] = useState<Record<string, ProtocolId[]>>({})
   // 作業ボタンごとの作成中のパケット
   const [drafts, setDrafts] = useState<Partial<Record<ActionButtonId, PacketDraft>>>({})
+  // 最後にパケットを送った作業ボタン
+  const [sentButtonId, setSentButtonId] = useState<ActionButtonId | null>(null)
+  // パケットはサーバーから WebSocket で届く。判定結果は画面上部に出す
+  const game = useStageSocket(stageId, ({ success, message }) => {
+    toaster.create({ type: success ? 'success' : 'error', title: success ? '正解' : '不正解', description: message })
+    // 正解したパケットは空に戻し、同じボタンで別のパケットを作れるようにする（不正解なら直して送り直せるように残す）
+    if (success && sentButtonId) setDrafts((previous) => ({ ...previous, [sentButtonId]: undefined }))
+  })
   // パケット受信の枠で解析画面を開いているパケット。戻るボタンで一覧に戻す（パケット送信の枠の操作とは関係なく残す）
   const [openedPacketId, setOpenedPacketId] = useState<string | null>(null)
 
@@ -147,7 +151,12 @@ export function StageWorkspace({ stageId, workspace, rawOptions, rawActionButton
                 isAutoFilled={selectedCompose.isAutoFilled}
                 isEditable={selectedCompose.isEditable}
                 onSend={
-                  game.status === 'playing' || game.status === 'judging' ? (bytes) => game.send(buildPacketJson(bytes)) : undefined
+                  game.status === 'playing' || game.status === 'judging'
+                    ? (bytes) => {
+                        setSentButtonId(selectedCompose.id)
+                        game.send(buildPacketJson(bytes))
+                      }
+                    : undefined
                 }
                 isSending={game.status === 'judging'}
               />
