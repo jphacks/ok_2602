@@ -43,5 +43,13 @@
       "ping response": ["ethernet.src", "ethernet.dst", "ipv4.src", "ipv4.dst"]
     }
   },
-  "action_buttons": ["ping request", "ping response", "packet all view", "todo list"]
+  "action_buttons": ["ping request", "ping response", "packet all view", "todo list"],
+  "todo_list": {
+	  1: "届いたパケットを解析する",
+	  2: "適切なアドレスに転送するようにパケットを作成する",
+	  3: "作成したパケットを送信する",
+	  4: "新たに届いたパケットを解析する",
+	  5: "同様に適切なアドレスに転送するようにパケットを作成する",
+	  6: "作成したパケットを送信する"
+	  }
 }
