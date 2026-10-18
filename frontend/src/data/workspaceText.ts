@@ -10,14 +10,22 @@ export const TABLE_TEMPLATES: Record<TableId, Omit<NetworkTable, 'rows'>> = {
     columns: ['Code', 'Network', '[AD/Metric]', 'Next Hop', 'Interface'],
     help: {
       summary:
-        'ルータが「宛先ネットワークへどのインターフェースから送るか」を決めるための表です。Code は経路をどうやって知ったかを表します。',
+        'ルータが「宛先ネットワークへどのインターフェースから送るか」を決めるための表です。Code は経路をどうやって知ったかを表します。同じネットワークへの経路が複数あるときは、AD が小さい方、AD が同じならメトリックが小さい方を使います（メトリックも同じなら両方使う）。',
       items: [
         { term: 'C', description: 'connected：ルータに直接つながっているネットワーク' },
         { term: 'L', description: 'local：ルータ自身のインターフェースのIPアドレス' },
         { term: 'S', description: 'static：管理者が手動で設定した経路' },
         { term: 'R / O', description: 'RIP / OSPF：ルーティングプロトコルで学習した経路' },
         { term: '*', description: 'candidate default：どの経路にも当てはまらないときに使うデフォルトルート' },
-        { term: '[AD/Metric]', description: '経路の信頼度（管理距離）と、宛先までの距離（メトリック）' },
+        {
+          term: '[AD/Metric]',
+          description:
+            'AD（アドミニストレーティブディスタンス）は経路の信頼度で、小さいほど優先。メトリックは宛先までの距離（RIP はホップ数）。C / L は実機の表示では省略されますが、この画面では [0/0] と書きます',
+        },
+        {
+          term: 'AD値',
+          description: 'Cisco 標準：Connected 0 / Static 1 / EIGRP 90 / OSPF 110 / IS-IS 115 / RIP 120 / EIGRP（外部）170',
+        },
       ],
     },
   },

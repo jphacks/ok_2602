@@ -81,7 +81,9 @@ export function StageWorkspace({ stageId, workspace, rawOptions, rawActionButton
       <HStack gap="2">
         <Spinner size="sm" color="green.500" />
         <Text fontSize="sm" color="gray.600">
-          パケットの受信を待っています…
+          {game.status === 'connecting'
+            ? 'サーバーに接続しています…'
+            : 'パケットの受信を待っています。こちらから送るパケットもあるので、やることリストを確認しましょう'}
         </Text>
       </HStack>
     ) : null

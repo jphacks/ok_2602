@@ -16,8 +16,10 @@ export function HexDump({ bytes, layers, restLabel }: { bytes: number[]; layers:
     bytes.slice(row * BYTES_PER_ROW, (row + 1) * BYTES_PER_ROW),
   )
   const hasRest = bytes.some((_, index) => !getLayer(index))
+  // RIP エントリのように同じ層が続くときは、凡例は1つにまとめる
+  const protocols = [...new Set(layers.map((layer) => layer.protocol))]
   const legends = [
-    ...layers.map((layer) => ({ label: PROTOCOLS[layer.protocol].name, color: `${PROTOCOLS[layer.protocol].colorPalette}.100` })),
+    ...protocols.map((protocol) => ({ label: PROTOCOLS[protocol].name, color: `${PROTOCOLS[protocol].colorPalette}.100` })),
     ...(hasRest ? [{ label: restLabel, color: 'gray.100' }] : []),
   ]
 
@@ -60,13 +62,22 @@ export function HexDump({ bytes, layers, restLabel }: { bytes: number[]; layers:
   )
 }
 
-// 1つの層の枠（見出し + 「項目名 | 値」の2列）。children には FieldRow を並べる
-export function LayerCard({ title, colorPalette, children, ...props }: BoxProps & { title: string; colorPalette: string }) {
+// 1つの層の枠（見出し + 「項目名 | 値」の2列）。children には FieldRow を並べる。action は見出しの右端に出す
+export function LayerCard({
+  title,
+  colorPalette,
+  action,
+  children,
+  ...props
+}: BoxProps & { title: string; colorPalette: string; action?: ReactNode }) {
   return (
     <Box borderWidth="1px" borderColor={`${colorPalette}.200`} rounded="lg" overflow="hidden" {...props}>
-      <Text bg={`${colorPalette}.50`} px="3" py="1" fontSize="sm" fontWeight="semibold" color={`${colorPalette}.800`}>
-        {title}
-      </Text>
+      <HStack justify="space-between" bg={`${colorPalette}.50`} px="3" py="1">
+        <Text fontSize="sm" fontWeight="semibold" color={`${colorPalette}.800`}>
+          {title}
+        </Text>
+        {action}
+      </HStack>
       <Grid templateColumns="auto 1fr" columnGap="4" rowGap="1.5" px="3" py="2" alignItems="center">
         {children}
       </Grid>
@@ -85,6 +96,13 @@ export function FieldRow({ name, children }: { name: string; children: ReactNode
   )
 }
 
+// 層の見出し。RIP エントリは何番目かを付ける
+function formatLayerTitle(layers: { protocol: ProtocolId; name: string }[], index: number) {
+  const layer = layers[index]
+  if (layer.protocol !== 'rip_entry') return layer.name
+  return `${layer.name}${layers.slice(0, index + 1).filter((candidate) => candidate.protocol === 'rip_entry').length}`
+}
+
 // 解析した層の項目を一覧する
 export function LayerList({ title, layers }: { title: string; layers: ParsedLayer[] }) {
   return (
@@ -92,8 +110,8 @@ export function LayerList({ title, layers }: { title: string; layers: ParsedLaye
       <Text fontWeight="bold" color="gray.800">
         {title}
       </Text>
-      {layers.map((layer) => (
-        <LayerCard key={layer.name} title={layer.name} colorPalette="green">
+      {layers.map((layer, index) => (
+        <LayerCard key={layer.start} title={formatLayerTitle(layers, index)} colorPalette="green">
           {layer.fields.map((field) => (
             <FieldRow key={field.name} name={field.name}>
               <Text fontSize="sm" fontFamily="mono" color="gray.800" wordBreak="break-all">

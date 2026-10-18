@@ -11,6 +11,8 @@ export const ACTION_BUTTON_LABELS = {
   ping_request: 'pingリクエスト',
   ping_response: 'pingレスポンス',
   packet_forward: 'パケット転送',
+  rip_request: 'RIPリクエスト',
+  rip_response: 'RIPレスポンス',
   // 作成中・作成済みのパケットの全体像を見る
   packet_all_view: 'パケットの全体像',
   todo_list: 'やることリスト',
@@ -23,13 +25,23 @@ export const ICMP_ECHO = '08 00 f7 fd 00 01 00 01'
 // ICMP エコー応答（type 0, id 1, seq 1）
 export const ICMP_ECHO_REPLY = '00 00 ff fd 00 01 00 01'
 
-// パケット作成のボタン（高レイヤから順にヘッダを付与する）の設定
+// RIP は UDP（ポート 520）の上で動く。IPv4 のプロトコル番号 17 が UDP
+const RIP_DEFAULTS = { ipv4: { protocol: '17' }, udp: { src_port: '520', dst_port: '520' } }
+
+// パケット作成のボタン（データ部から高レイヤ順にヘッダを付与する）の設定
 export const COMPOSE_SETTINGS: Partial<Record<ActionButtonId, ComposeSettings>> = {
-  arp_request: { upper: 'arp', defaults: { arp: { op: '1' } } },
-  arp_response: { upper: 'arp', defaults: { arp: { op: '2' } } },
-  ping_request: { upper: 'ipv4', payload: ICMP_ECHO },
-  ping_response: { upper: 'ipv4', payload: ICMP_ECHO_REPLY },
-  packet_forward: { upper: 'ipv4', payload: ICMP_ECHO },
+  arp_request: { layers: ['arp'], defaults: { arp: { op: '1' } } },
+  arp_response: { layers: ['arp'], defaults: { arp: { op: '2' } } },
+  ping_request: { layers: ['ipv4'], payload: ICMP_ECHO },
+  ping_response: { layers: ['ipv4'], payload: ICMP_ECHO_REPLY },
+  packet_forward: { layers: ['ipv4'], payload: ICMP_ECHO },
+  // 経路表全体の要求は、アドレスファミリ 0・メトリック 16 のエントリを1つだけ入れる
+  rip_request: {
+    layers: ['rip', 'udp', 'ipv4'],
+    defaults: RIP_DEFAULTS,
+    entries: [{ afi: '0', address: '0.0.0.0', mask: '0.0.0.0', metric: '16' }],
+  },
+  rip_response: { layers: ['rip', 'udp', 'ipv4'], defaults: RIP_DEFAULTS, entries: [{}] },
 }
 
 const isActionButtonId = (name: string): name is ActionButtonId => name in ACTION_BUTTON_LABELS

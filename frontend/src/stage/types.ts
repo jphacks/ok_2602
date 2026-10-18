@@ -88,6 +88,28 @@ export interface IcmpJson {
   seq: number
 }
 
+export interface UdpJson {
+  src_port: number
+  dst_port: number
+  length: number
+  checksum: number
+}
+
+export interface RipEntryJson {
+  afi: number
+  route_tag: number
+  address: string
+  mask: string
+  next_hop: string
+  metric: number
+}
+
+export interface RipJson {
+  command: number
+  version: number
+  entries: RipEntryJson[]
+}
+
 // パケット全体。hex はフレーム全体、payload は最後のヘッダより後ろ（どちらも空白区切りの16進数）
 export interface PacketJson {
   hex: string
@@ -95,6 +117,8 @@ export interface PacketJson {
   arp?: ArpJson
   ipv4?: Ipv4Json
   icmp?: IcmpJson
+  udp?: UdpJson
+  rip?: RipJson
   payload: string
 }
 

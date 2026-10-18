@@ -1,10 +1,13 @@
 import { Button, Flex, HStack, Text, VStack } from '@chakra-ui/react'
 import { useState } from 'react'
 import { SecondaryButton } from '../components/ui'
-import { parseHex } from '../packet/bytes'
-import { getUpperProtocol, parseLayer, PROTOCOLS, type ParsedLayer, type ProtocolId } from '../packet/protocols'
+import { PROTOCOLS, UPPER_PROTOCOL_FIELDS, type ProtocolId } from '../packet/protocols'
+import { analyzePacket } from '../packet/steps'
 import type { ReceivedPacket } from '../stage/types'
 import { HexDump, LayerList } from './PacketViews'
+
+// 解析ボタンを出す層（RIP エントリは RIP ヘッダと一緒に解析する）
+const ANALYZABLE_PROTOCOLS: ProtocolId[] = ['ethernet', 'arp', 'ipv4', 'udp', 'rip']
 
 type Props = {
   packet: ReceivedPacket
@@ -18,38 +21,28 @@ type Props = {
 // 受信パケットを16進数の生データから低レイヤ→高レイヤの順に解析する
 export function PacketAnalyzer({ packet, analyzedLayers, onAnalyze, onBack }: Props) {
   const [notice, setNotice] = useState<string | null>(null)
-  const bytes = parseHex(packet.hex) ?? []
+  const { bytes, layers, next } = analyzePacket(packet.hex, analyzedLayers)
+  const last = layers.at(-1)
+  const restLength = bytes.length - (last?.end ?? 0)
 
-  const layers: ParsedLayer[] = []
-  for (const protocol of analyzedLayers) {
-    const layer = parseLayer(protocol, bytes, layers.at(-1)?.end ?? 0)
-    if (!layer) break
-    layers.push(layer)
-  }
-  const ethernet = layers.find((layer) => layer.protocol === 'ethernet')
-  const expectedUpper = ethernet ? getUpperProtocol(bytes, ethernet.start) : null
-  const isUpperAnalyzed = layers.some((layer) => layer.protocol !== 'ethernet')
-  const restLength = bytes.length - (layers.at(-1)?.end ?? 0)
-
+  // 次の層は、1つ下の層の項目（Ethernet のタイプ・IP のプロトコル番号・UDP のポート番号）で決まる
   const analyze = (protocol: ProtocolId) => {
-    if (protocol !== 'ethernet' && protocol !== expectedUpper) {
-      const type = ethernet?.fields.find((field) => field.name === 'タイプ')?.value
-      setNotice(
-        expectedUpper
-          ? `Ethernetヘッダのタイプが ${type} なので、次は${PROTOCOLS[expectedUpper].headerName}として解析します`
-          : `Ethernetヘッダのタイプ ${type} はこの画面では解析できません`,
-      )
+    if (last && protocol !== next) {
+      const lower = PROTOCOLS[last.protocol]
+      const fieldName = lower.fields.find((field) => field.key === UPPER_PROTOCOL_FIELDS[last.protocol]?.key)?.name
+      const value = last.fields.find((field) => field.name === fieldName)?.value
+      setNotice(`${lower.headerName}の${fieldName}が ${value} なので、次は${next ? PROTOCOLS[next].headerName : ''}として解析します`)
       return
     }
     setNotice(null)
     onAnalyze([...analyzedLayers, protocol])
   }
 
-  // 上位の層（IPv4 / ARP）は Ethernet ヘッダを解析した後でないと解析できない
-  const buttons = (['ethernet', 'ipv4', 'arp'] as const).map((protocol) => ({
+  // Ethernet ヘッダから順に解析する。最後まで解析したら（またはこの画面で解析できない種類なら）押せない
+  const buttons = ANALYZABLE_PROTOCOLS.map((protocol) => ({
     protocol,
     isDone: analyzedLayers.includes(protocol),
-    isDisabled: protocol === 'ethernet' ? !!ethernet : !ethernet || isUpperAnalyzed,
+    isDisabled: analyzedLayers.includes(protocol) || next === null || (!last && protocol !== 'ethernet'),
   }))
 
   return (
@@ -85,7 +78,7 @@ export function PacketAnalyzer({ packet, analyzedLayers, onAnalyze, onBack }: Pr
           {notice}
         </Text>
       )}
-      <HexDump bytes={bytes} layers={layers} restLabel={isUpperAnalyzed ? 'データ' : '未解析'} />
+      <HexDump bytes={bytes} layers={layers} restLabel={next === null ? 'データ' : '未解析'} />
       {layers.length === 0 ? (
         <Text fontSize="sm" color="gray.600">
           受信したままの生データです。まずは{PROTOCOLS.ethernet.headerName}を解析しましょう。
@@ -93,7 +86,7 @@ export function PacketAnalyzer({ packet, analyzedLayers, onAnalyze, onBack }: Pr
       ) : (
         <LayerList title="解析結果" layers={layers} />
       )}
-      {isUpperAnalyzed && restLength > 0 && (
+      {next === null && restLength > 0 && (
         <Text fontSize="sm" color="gray.600">
           残りの {restLength} バイトは上位プロトコルのデータです。
         </Text>

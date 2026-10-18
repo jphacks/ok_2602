@@ -4,7 +4,7 @@ import { formatHex, formatIpv4, formatMac, buildUintBytes, parseIpv4, parseMac, 
 // プロトコル（層）ごとのヘッダの定義と、その定義を使った解析・組み立て。
 // バックエンドの解析・作成機能ができたら差し替える想定のフロント側の簡易版
 
-export type ProtocolId = 'ethernet' | 'arp' | 'ipv4'
+export type ProtocolId = 'ethernet' | 'arp' | 'ipv4' | 'udp' | 'rip' | 'rip_entry'
 
 export interface FieldDefinition {
   key: string
@@ -30,8 +30,6 @@ export interface ProtocolDefinition {
   headerLength: number
   fields: FieldDefinition[]
 }
-
-const ETHER_TYPES: Partial<Record<ProtocolId, number>> = { ipv4: 0x0800, arp: 0x0806 }
 
 // 項目の定義を短く書くための関数
 const field = (
@@ -95,6 +93,56 @@ export const PROTOCOLS: Record<ProtocolId, ProtocolDefinition> = {
       field('dst', '宛先IPアドレス', 16, 4, 'ipv4', 'input'),
     ],
   },
+  udp: {
+    id: 'udp',
+    name: 'UDP',
+    headerName: 'UDPヘッダ',
+    colorPalette: 'purple',
+    headerLength: 8,
+    fields: [
+      field('src_port', '送信元ポート番号', 0, 2, 'dec', 'input', { labels: { 520: 'RIP' } }),
+      field('dst_port', '宛先ポート番号', 2, 2, 'dec', 'input', { labels: { 520: 'RIP' } }),
+      field('length', '長さ', 4, 2, 'dec', 'auto'),
+      // IPv4 では 0（チェックサムなし）が許される
+      field('checksum', 'チェックサム', 6, 2, 'hex', 'fixed', { defaultValue: '0x0000' }),
+    ],
+  },
+  rip: {
+    id: 'rip',
+    name: 'RIPv2',
+    headerName: 'RIPヘッダ',
+    colorPalette: 'teal',
+    headerLength: 4,
+    fields: [
+      field('command', 'コマンド', 0, 1, 'dec', 'input', { labels: { 1: 'Request', 2: 'Response' } }),
+      field('version', 'バージョン', 1, 1, 'dec', 'input'),
+      field('zero', '未使用', 2, 2, 'hex', 'fixed', { defaultValue: '0x0000' }),
+    ],
+  },
+  // RIP ヘッダの後ろに 0〜25 個並ぶ経路の情報
+  rip_entry: {
+    id: 'rip_entry',
+    name: 'RIPエントリ',
+    headerName: 'RIPエントリ',
+    colorPalette: 'cyan',
+    headerLength: 20,
+    fields: [
+      field('afi', 'アドレスファミリ', 0, 2, 'dec', 'input', { defaultValue: '2', labels: { 0: '全経路の要求', 2: 'IPv4' } }),
+      field('route_tag', 'ルートタグ', 2, 2, 'dec', 'fixed', { defaultValue: '0' }),
+      field('address', 'ネットワークアドレス', 4, 4, 'ipv4', 'input'),
+      field('mask', 'サブネットマスク', 8, 4, 'ipv4', 'input'),
+      // 0.0.0.0 は「このパケットの送信元をネクストホップにする」
+      field('next_hop', 'ネクストホップ', 12, 4, 'ipv4', 'input', { defaultValue: '0.0.0.0' }),
+      field('metric', 'メトリック', 16, 4, 'dec', 'input', { labels: { 16: '到達不能' } }),
+    ],
+  },
+}
+
+// 下の層のどの項目の値で、上に載っている層が決まるか（Ethernet のタイプ / IPv4 のプロトコル番号 / UDP の宛先ポート番号）
+export const UPPER_PROTOCOL_FIELDS: Partial<Record<ProtocolId, { key: string; values: Partial<Record<number, ProtocolId>> }>> = {
+  ethernet: { key: 'type', values: { 0x0800: 'ipv4', 0x0806: 'arp' } },
+  ipv4: { key: 'protocol', values: { 17: 'udp' } },
+  udp: { key: 'dst_port', values: { 520: 'rip' } },
 }
 
 // 数値を項目の形式で表示する（hex は桁をそろえる）
@@ -140,11 +188,19 @@ export function parseLayer(protocol: ProtocolId, bytes: number[], offset: number
   return { protocol, start: offset, end, name: definition.name, fields }
 }
 
-// Ethernet ヘッダのタイプから、その上に載っている層を求める
-export function getUpperProtocol(bytes: number[], ethernetStart: number): ProtocolId | null {
-  const type = parseUint(bytes, ethernetStart + 12, 2)
-  return (Object.keys(ETHER_TYPES) as ProtocolId[]).find((id) => ETHER_TYPES[id] === type) ?? null
+// start から始まる protocol の層の上に載っている層を求める。この画面で解析できない種類なら null。
+// RIP ヘッダ・RIP エントリの後ろは、20 バイトずつ RIP エントリが続く
+export function getUpperProtocol(protocol: ProtocolId, bytes: number[], start: number): ProtocolId | null {
+  const end = start + PROTOCOLS[protocol].headerLength
+  if (protocol === 'rip' || protocol === 'rip_entry') return end + PROTOCOLS.rip_entry.headerLength <= bytes.length ? 'rip_entry' : null
+  const upper = UPPER_PROTOCOL_FIELDS[protocol]
+  const field = PROTOCOLS[protocol].fields.find((candidate) => candidate.key === upper?.key)
+  return (field && upper?.values[parseUint(bytes, start + field.offset, field.size)]) ?? null
 }
+
+// lower の上に upper を載せるときの、lower の項目の値（Ethernet のタイプなど）
+const getUpperProtocolValue = (lower: ProtocolId, upper: ProtocolId) =>
+  Object.entries(UPPER_PROTOCOL_FIELDS[lower]?.values ?? {}).find(([, protocol]) => protocol === upper)?.[0]
 
 function calculateIpv4Checksum(header: number[]): number {
   let sum = 0
@@ -153,7 +209,7 @@ function calculateIpv4Checksum(header: number[]): number {
   return ~sum & 0xffff
 }
 
-// 自動計算の項目の値（Ethernet のタイプは上位層、IPv4 の全長は payload から）
+// 自動計算の項目の値（Ethernet のタイプは上位層、IPv4 の全長・UDP の長さは payload から）
 export function calculateAutoValue(
   protocol: ProtocolId,
   key: string,
@@ -161,10 +217,12 @@ export function calculateAutoValue(
   upper?: ProtocolId,
 ): string | null {
   if (protocol === 'ethernet' && key === 'type' && upper) {
-    const type = ETHER_TYPES[upper]
-    return type === undefined ? null : `0x${type.toString(16).padStart(4, '0')}`
+    const type = getUpperProtocolValue('ethernet', upper)
+    return type === undefined ? null : `0x${Number(type).toString(16).padStart(4, '0')}`
   }
-  if (protocol === 'ipv4' && key === 'total_length') return String(PROTOCOLS.ipv4.headerLength + payloadLength)
+  if ((protocol === 'ipv4' && key === 'total_length') || (protocol === 'udp' && key === 'length')) {
+    return String(PROTOCOLS[protocol].headerLength + payloadLength)
+  }
   return null
 }
 
@@ -215,17 +273,20 @@ function parseLayerJson(protocol: ProtocolId, bytes: number[], offset: number) {
 // ICMP ヘッダの項目（key とバイト数）。この画面では ICMP は入力しないので、送信する JSON を作るときだけ読む
 const ICMP_FIELDS = [['type', 1], ['code', 1], ['checksum', 2], ['id', 2], ['seq', 2]] as const
 
-// 完成したフレームから、WebSocket で送る JSON を作る
+// 完成したフレームから、WebSocket で送る JSON を作る。Ethernet から上の層へ順にたどる（RIP エントリは rip.entries にまとめる）
 export function buildPacketJson(bytes: number[]): PacketJson {
-  const json: Record<string, unknown> = { hex: formatHex(bytes), ethernet: parseLayerJson('ethernet', bytes, 0) }
-  let offset = PROTOCOLS.ethernet.headerLength
-  const upper = getUpperProtocol(bytes, 0)
-  const upperLayer = upper && parseLayerJson(upper, bytes, offset)
-  if (upper) {
-    json[upper] = upperLayer
-    offset += PROTOCOLS[upper].headerLength
+  const json: Record<string, Record<string, unknown>> & { hex?: string; payload?: string } = {}
+  let protocol: ProtocolId | null = 'ethernet'
+  let offset = 0
+  while (protocol && offset + PROTOCOLS[protocol].headerLength <= bytes.length) {
+    const values = parseLayerJson(protocol, bytes, offset)
+    if (protocol === 'rip_entry') (json.rip.entries as unknown[]).push(values)
+    else json[protocol] = protocol === 'rip' ? { ...values, entries: [] } : values
+    const upper = getUpperProtocol(protocol, bytes, offset)
+    offset += PROTOCOLS[protocol].headerLength
+    protocol = upper
   }
-  if (upper === 'ipv4' && upperLayer?.protocol === 1 && bytes.length >= offset + 8) {
+  if (json.ipv4?.protocol === 1 && bytes.length >= offset + 8) {
     json.icmp = Object.fromEntries(
       ICMP_FIELDS.map(([key, size]) => {
         offset += size
@@ -233,6 +294,5 @@ export function buildPacketJson(bytes: number[]): PacketJson {
       }),
     )
   }
-  json.payload = formatHex(bytes.slice(offset))
-  return json as unknown as PacketJson
+  return { ...json, hex: formatHex(bytes), payload: formatHex(bytes.slice(offset)) } as unknown as PacketJson
 }

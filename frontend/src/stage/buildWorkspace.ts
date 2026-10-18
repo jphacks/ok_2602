@@ -74,12 +74,13 @@ export function buildWorkspace(stage: Stage): WorkspaceData | null {
   return {
     router: buildRouterInfo(routerNode, router, stage.topology?.edges ?? []),
     tables: {
-      // はじめは直接つながっているネットワーク（C）と自分のアドレス（L）だけ
+      // はじめは直接つながっているネットワーク（C）と自分のアドレス（L）だけ。
+      // 実機の show ip route では省略されるが、AD 0（最優先）であることがわかるように [0/0] と書く
       routing: {
         ...TABLE_TEMPLATES.routing,
         rows: router.flatMap((iface) => [
-          ['C', `${formatIpv4(getNetworkAddress(iface.ip, iface.prefix))}/${iface.prefix}`, '', 'directly connected', iface.name],
-          ['L', `${formatIpv4(iface.ip)}/32`, '', 'directly connected', iface.name],
+          ['C', `${formatIpv4(getNetworkAddress(iface.ip, iface.prefix))}/${iface.prefix}`, '[0/0]', 'directly connected', iface.name],
+          ['L', `${formatIpv4(iface.ip)}/32`, '[0/0]', 'directly connected', iface.name],
         ]),
       },
       // はじめはルータ自身のインターフェースだけ。相手の分は ARP で覚える
