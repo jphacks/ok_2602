@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 	"time"
 
 	"backend/api"
@@ -13,7 +14,12 @@ import (
 
 func main() {
 	// DB初期化
-	dsn := "host=localhost user=backuser password=backpass dbname=app_db port=5432 sslmode=disable"
+	// DB のポートは環境変数 DB_PORT で変えられる（別のコンテナにつなぐとき）
+	dbPort := os.Getenv("DB_PORT")
+	if dbPort == "" {
+		dbPort = "5432"
+	}
+	dsn := "host=localhost user=backuser password=backpass dbname=app_db port=" + dbPort + " sslmode=disable"
 	if err := db.InitDB(dsn); err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}

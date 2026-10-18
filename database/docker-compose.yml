@@ -1,9 +1,10 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: postgres-test
+    # 別のブランチ用に並べて立てるときは DB_CONTAINER_NAME / DB_PORT を変える（docker compose -p で別プロジェクトにする）
+    container_name: ${DB_CONTAINER_NAME:-postgres-test}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       BACKUSER_PASSWORD: ${BACKUSER_PASSWORD}
