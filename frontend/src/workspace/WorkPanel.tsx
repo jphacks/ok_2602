@@ -1,8 +1,8 @@
-import { Badge, Box, Button, List, Stack, Text, VStack } from '@chakra-ui/react'
+import { Badge, Box, Button, HStack, Stack, Text, VStack } from '@chakra-ui/react'
 import type { ReactNode } from 'react'
 import { Panel, ToggleButton } from '../components/ui'
 import { ACTION_BUTTON_LABELS, type ActionButtonId } from '../stage/actionButtons'
-import type { ReceivedPacket } from '../stage/types'
+import type { ReceivedPacket, TodoItem } from '../stage/types'
 
 // パケット送信の枠の右側に表示する内容
 export type WorkView =
@@ -20,48 +20,51 @@ type ReceivedPacketsPanelProps = {
   onSelect: (packet: ReceivedPacket) => void
   // 開いているパケットの解析画面。あるときは一覧の代わりにこれを出す（一覧に戻るボタンは解析画面の中にある）
   detail?: ReactNode
+  // 一覧の上に出すお知らせ（受信待ち・ステージクリアなど）
+  notice?: ReactNode
 }
 
 // パケット受信の枠。受信パケットの一覧を出し、押すとこの枠の中で解析できる
-export function ReceivedPacketsPanel({ packets, selectedId, completedIds, onSelect, detail }: ReceivedPacketsPanelProps) {
+export function ReceivedPacketsPanel({ packets, selectedId, completedIds, onSelect, detail, notice }: ReceivedPacketsPanelProps) {
   return (
     <Panel title="パケット受信" flexShrink="0">
       {detail ? (
         <Box maxH="72" overflow="auto">
           {detail}
         </Box>
-      ) : packets.length === 0 ? (
-        <Text fontSize="sm" color="gray.500">
-          まだパケットは届いていません
-        </Text>
       ) : (
-        <VStack align="stretch" gap="2" maxH="44" overflow="auto" px={{ base: '0', md: '6' }}>
-          {packets.map((packet) => (
-            <ToggleButton
-              key={packet.id}
-              isSelected={packet.id === selectedId}
-              position="relative"
-              fontWeight="normal"
-              onClick={() => onSelect(packet)}
-            >
-              {packet.label}
-              {/* 名前が中央からずれないよう、目印はボタンの右端に重ねて置く */}
-              {completedIds.includes(packet.id) && (
-                <Badge
-                  position="absolute"
-                  right="3"
-                  top="50%"
-                  transform="translateY(-50%)"
-                  colorPalette="green"
-                  variant="solid"
-                  size="sm"
+        <>
+          {notice}
+          {packets.length > 0 && (
+            <VStack align="stretch" gap="2" maxH="44" overflow="auto" px={{ base: '0', md: '6' }}>
+              {packets.map((packet) => (
+                <ToggleButton
+                  key={packet.id}
+                  isSelected={packet.id === selectedId}
+                  position="relative"
+                  fontWeight="normal"
+                  onClick={() => onSelect(packet)}
                 >
-                  解析済み
-                </Badge>
-              )}
-            </ToggleButton>
-          ))}
-        </VStack>
+                  {packet.label}
+                  {/* 名前が中央からずれないよう、目印はボタンの右端に重ねて置く */}
+                  {completedIds.includes(packet.id) && (
+                    <Badge
+                      position="absolute"
+                      right="3"
+                      top="50%"
+                      transform="translateY(-50%)"
+                      colorPalette="green"
+                      variant="solid"
+                      size="sm"
+                    >
+                      解析済み
+                    </Badge>
+                  )}
+                </ToggleButton>
+              ))}
+            </VStack>
+          )}
+        </>
       )}
     </Panel>
   )
@@ -70,7 +73,7 @@ export function ReceivedPacketsPanel({ packets, selectedId, completedIds, onSele
 type WorkPanelProps = {
   // ステージの action_buttons で指定されたボタン（この順に並べる）
   buttonIds: ActionButtonId[]
-  todos: string[]
+  todos: TodoItem[]
   view: WorkView
   onChangeView: (view: WorkView) => void
   // やることリスト以外のときに右側に表示する内容（パケットの作成など）
@@ -141,11 +144,19 @@ export function WorkPanel({ buttonIds, todos, view, onChangeView, detail }: Work
               <Text fontWeight="bold" color="gray.800">
                 やることリスト
               </Text>
-              <List.Root as="ol" listStyleType="decimal" ps="5" gap="2" color="gray.700" fontSize="sm">
+              {/* 項番はステージ JSON のキーをそのまま出す */}
+              <VStack as="ol" align="stretch" gap="2" listStyleType="none">
                 {todos.map((todo) => (
-                  <List.Item key={todo}>{todo}</List.Item>
+                  <HStack as="li" key={todo.number} align="start" gap="3">
+                    <Badge colorPalette="green" variant="solid" rounded="full" minW="6" justifyContent="center" flexShrink="0">
+                      {todo.number}
+                    </Badge>
+                    <Text fontSize="sm" color="gray.700">
+                      {todo.text}
+                    </Text>
+                  </HStack>
                 ))}
-              </List.Root>
+              </VStack>
             </VStack>
           ) : view.kind === 'none' ? (
             <Text fontSize="sm" color="gray.600">

@@ -1,4 +1,5 @@
-import { formatIpv4, formatMac, buildUintBytes, parseIpv4, parseMac, parseUint } from './bytes'
+import type { PacketJson } from '../stage/types'
+import { formatHex, formatIpv4, formatMac, buildUintBytes, parseIpv4, parseMac, parseUint } from './bytes'
 
 // プロトコル（層）ごとのヘッダの定義と、その定義を使った解析・組み立て。
 // バックエンドの解析・作成機能ができたら差し替える想定のフロント側の簡易版
@@ -50,9 +51,10 @@ export const PROTOCOLS: Record<ProtocolId, ProtocolDefinition> = {
     headerName: 'Ethernetヘッダ',
     colorPalette: 'green',
     headerLength: 14,
+    // 表示は IPv4 と同じ「送信元 → 宛先」の順（フレーム上の位置は offset で決まる）
     fields: [
-      field('dst', '宛先MACアドレス', 0, 6, 'mac', 'input'),
       field('src', '送信元MACアドレス', 6, 6, 'mac', 'input'),
+      field('dst', '宛先MACアドレス', 0, 6, 'mac', 'input'),
       field('type', 'タイプ', 12, 2, 'hex', 'auto', { labels: { 0x0800: 'IPv4', 0x0806: 'ARP' } }),
     ],
   },
@@ -198,4 +200,39 @@ export function buildLayer(
   }
   if (hasAutoChecksum) header.splice(10, 2, ...buildUintBytes(calculateIpv4Checksum(header), 2))
   return [...header, ...payload]
+}
+
+// 層の項目を、バックエンドとやり取りする JSON の形で読む（キーは項目の key。アドレスは文字列、それ以外は数値）
+function parseLayerJson(protocol: ProtocolId, bytes: number[], offset: number) {
+  return Object.fromEntries(
+    PROTOCOLS[protocol].fields.map((field) => {
+      const value = bytes.slice(offset + field.offset, offset + field.offset + field.size)
+      return [field.key, field.format === 'mac' || field.format === 'ipv4' ? formatField(field, value) : parseUint(value, 0, field.size)]
+    }),
+  )
+}
+
+// ICMP ヘッダの項目（key とバイト数）。この画面では ICMP は入力しないので、送信する JSON を作るときだけ読む
+const ICMP_FIELDS = [['type', 1], ['code', 1], ['checksum', 2], ['id', 2], ['seq', 2]] as const
+
+// 完成したフレームから、WebSocket で送る JSON を作る
+export function buildPacketJson(bytes: number[]): PacketJson {
+  const json: Record<string, unknown> = { hex: formatHex(bytes), ethernet: parseLayerJson('ethernet', bytes, 0) }
+  let offset = PROTOCOLS.ethernet.headerLength
+  const upper = getUpperProtocol(bytes, 0)
+  const upperLayer = upper && parseLayerJson(upper, bytes, offset)
+  if (upper) {
+    json[upper] = upperLayer
+    offset += PROTOCOLS[upper].headerLength
+  }
+  if (upper === 'ipv4' && upperLayer?.protocol === 1 && bytes.length >= offset + 8) {
+    json.icmp = Object.fromEntries(
+      ICMP_FIELDS.map(([key, size]) => {
+        offset += size
+        return [key, parseUint(bytes, offset - size, size)]
+      }),
+    )
+  }
+  json.payload = formatHex(bytes.slice(offset))
+  return json as unknown as PacketJson
 }

@@ -1,6 +1,8 @@
-import { Grid, VStack } from '@chakra-ui/react'
+import { Alert, Circle, createToaster, Dialog, Grid, HStack, Portal, Spinner, Text, Toast, Toaster, VStack } from '@chakra-ui/react'
 import { useMemo, useState } from 'react'
-import type { ProtocolId } from '../packet/protocols'
+import { useNavigate } from 'react-router'
+import { PrimaryButton, SecondaryButton } from '../components/ui'
+import { buildPacketJson, type ProtocolId } from '../packet/protocols'
 import {
   createDraft,
   createIsAutoFilled,
@@ -9,6 +11,7 @@ import {
   isAnalysisComplete,
   type PacketDraft,
 } from '../packet/steps'
+import { useStageSocket } from '../stage/api'
 import { ACTION_BUTTON_LABELS, COMPOSE_SETTINGS, resolveActionButtons, type ActionButtonId } from '../stage/actionButtons'
 import { resolveOptions, TABLE_EDIT_OPTIONS, type TableId } from '../stage/options'
 import type { ReceivedPacket, WorkspaceData } from '../stage/types'
@@ -19,7 +22,11 @@ import { TablePanel } from './TablePanel'
 import { RouterInfoView } from './RouterInfoView'
 import { ReceivedPacketsPanel, WorkPanel, type WorkView } from './WorkPanel'
 
+// 送ったパケットの判定結果を、画面上部に数秒だけ出す
+const toaster = createToaster({ placement: 'top', duration: 5000 })
+
 type Props = {
+  stageId: string
   workspace: WorkspaceData
   // ステージ JSON の options / action_buttons（未検証の生の値）
   rawOptions?: unknown
@@ -27,7 +34,12 @@ type Props = {
 }
 
 // ステージの作業画面。左にタブ切替のテーブル、右にパケット受信とパケット送信の枠を並べる。画面の状態はここで持つ
-export function StageWorkspace({ workspace, rawOptions, rawActionButtons }: Props) {
+export function StageWorkspace({ stageId, workspace, rawOptions, rawActionButtons }: Props) {
+  const navigate = useNavigate()
+  // パケットはサーバーから WebSocket で届く
+  const game = useStageSocket(stageId, ({ success, message }) =>
+    toaster.create({ type: success ? 'success' : 'error', title: success ? '正解' : '不正解', description: message }),
+  )
   const options = useMemo(() => resolveOptions(rawOptions), [rawOptions])
   const buttonIds = useMemo(() => resolveActionButtons(rawActionButtons), [rawActionButtons])
 
@@ -51,13 +63,28 @@ export function StageWorkspace({ workspace, rawOptions, rawActionButtons }: Prop
     return [{ id, label: ACTION_BUTTON_LABELS[id], settings, draft: drafts[id] ?? createDraft(settings), isEditable, isAutoFilled }]
   })
 
-  const openedPacket = workspace.packets.find((packet) => packet.id === openedPacketId)
+  const openedPacket = game.packets.find((packet) => packet.id === openedPacketId)
   const getAnalyzedLayers = (packet: ReceivedPacket) =>
     analyzedLayers[packet.id] ?? getInitialAnalyzedLayers(packet.hex, options.analysis_auto_layers)
-  const completedPacketIds = workspace.packets
+  const completedPacketIds = game.packets
     .filter((packet) => isAnalysisComplete(packet.hex, getAnalyzedLayers(packet)))
     .map((packet) => packet.id)
   const selectedCompose = view.kind === 'compose' ? composeButtons.find((button) => button.id === view.buttonId) : undefined
+
+  const notice =
+    game.status === 'cleared' || game.status === 'error' ? (
+      <Alert.Root status={game.status === 'cleared' ? 'success' : 'error'}>
+        <Alert.Indicator />
+        <Alert.Title>{game.status === 'cleared' ? 'ステージクリア！すべてのパケットを正しく処理しました。' : game.error}</Alert.Title>
+      </Alert.Root>
+    ) : game.packets.length === 0 ? (
+      <HStack gap="2">
+        <Spinner size="sm" color="green.500" />
+        <Text fontSize="sm" color="gray.600">
+          パケットの受信を待っています…
+        </Text>
+      </HStack>
+    ) : null
 
   const visibleTables = options.visible_tables.map((id: TableId) => ({
     id,
@@ -85,10 +112,11 @@ export function StageWorkspace({ workspace, rawOptions, rawActionButtons }: Prop
       )}
       <VStack align="stretch" gap="4" minW="0" minH="0">
         <ReceivedPacketsPanel
-          packets={workspace.packets}
+          packets={game.packets}
           selectedId={openedPacket?.id ?? null}
           completedIds={completedPacketIds}
           onSelect={(packet) => setOpenedPacketId(packet.id)}
+          notice={notice}
           detail={
             openedPacket && (
               // key でパケットごとに注意メッセージをリセットする
@@ -116,6 +144,10 @@ export function StageWorkspace({ workspace, rawOptions, rawActionButtons }: Prop
                 onChange={(draft) => setDrafts((previous) => ({ ...previous, [selectedCompose.id]: draft }))}
                 isAutoFilled={selectedCompose.isAutoFilled}
                 isEditable={selectedCompose.isEditable}
+                onSend={
+                  game.status === 'playing' || game.status === 'judging' ? (bytes) => game.send(buildPacketJson(bytes)) : undefined
+                }
+                isSending={game.status === 'judging'}
               />
             ) : view.kind === 'packet_overview' ? (
               <PacketOverview drafts={composeButtons} />
@@ -125,6 +157,51 @@ export function StageWorkspace({ workspace, rawOptions, rawActionButtons }: Prop
           }
         />
       </VStack>
+      <Portal>
+        <Toaster toaster={toaster} insetInline={{ mdDown: '4' }}>
+          {(toast) => (
+            <Toast.Root width={{ md: 'sm' }}>
+              <Toast.Indicator />
+              <VStack align="stretch" gap="1" flex="1">
+                <Toast.Title>{toast.title}</Toast.Title>
+                <Toast.Description>{toast.description}</Toast.Description>
+              </VStack>
+              <Toast.CloseTrigger />
+            </Toast.Root>
+          )}
+        </Toaster>
+      </Portal>
+      {/* ステージクリアのお知らせ。クリアした時点で開き、閉じた後もパケット受信の枠にクリアの表示が残る */}
+      {game.status === 'cleared' && (
+        <Dialog.Root defaultOpen placement="center">
+          <Portal>
+            <Dialog.Backdrop />
+            <Dialog.Positioner px="4">
+              <Dialog.Content textAlign="center" py="6">
+                <Dialog.Body>
+                  <VStack gap="4">
+                    <Circle size="16" bg="green.500" color="white" fontSize="3xl" fontWeight="bold">
+                      ✓
+                    </Circle>
+                    <Dialog.Title fontSize="2xl" color="gray.800">
+                      ステージクリア！
+                    </Dialog.Title>
+                    <Text color="gray.600">すべてのパケットを正しく転送できました。</Text>
+                  </VStack>
+                </Dialog.Body>
+                <Dialog.Footer justifyContent="center" gap="3">
+                  <Dialog.ActionTrigger asChild>
+                    <SecondaryButton size="md">閉じる</SecondaryButton>
+                  </Dialog.ActionTrigger>
+                  <PrimaryButton size="md" px="6" onClick={() => navigate('/stages')}>
+                    ステージ選択に戻る
+                  </PrimaryButton>
+                </Dialog.Footer>
+              </Dialog.Content>
+            </Dialog.Positioner>
+          </Portal>
+        </Dialog.Root>
+      )}
     </Grid>
   )
 }

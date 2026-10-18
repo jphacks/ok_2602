@@ -78,6 +78,7 @@ export function StagePage() {
       {workspace && detail.stage ? (
         <StageWorkspace
           key={detail.stage.id}
+          stageId={detail.stage.id}
           workspace={workspace}
           rawOptions={detail.stage.options}
           rawActionButtons={detail.stage.action_buttons}

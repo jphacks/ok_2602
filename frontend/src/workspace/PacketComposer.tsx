@@ -19,6 +19,10 @@ type Props = {
   onChange: (draft: PacketDraft) => void
   isAutoFilled: IsAutoFilled
   isEditable: IsEditable
+  // 完成したパケットを送る。サーバーにつながっていないときは undefined（送信ボタンを押せない）
+  onSend?: (bytes: number[]) => void
+  // 送ったパケットの判定待ち
+  isSending?: boolean
 }
 
 // 入力欄の例（具体的なアドレスではなく形式だけ示す）
@@ -31,7 +35,7 @@ function getPlaceholder(field: FieldDefinition) {
 }
 
 // 送信するパケットを高レイヤ→低レイヤの順にヘッダを付与して組み立てる
-export function PacketComposer({ label, settings, draft, onChange, isAutoFilled, isEditable }: Props) {
+export function PacketComposer({ label, settings, draft, onChange, isAutoFilled, isEditable, onSend, isSending }: Props) {
   const { upper } = settings
   const { attached } = draft
   const packet = buildDraft(settings, draft, isAutoFilled)
@@ -146,13 +150,24 @@ export function PacketComposer({ label, settings, draft, onChange, isAutoFilled,
       )}
 
       <Box>
-        <Button size="sm" bg="green.500" color="white" _hover={{ bg: 'green.600' }} disabled>
+        <Button
+          size="sm"
+          bg="green.500"
+          color="white"
+          _hover={{ bg: 'green.600' }}
+          disabled={!packet.isComplete || !onSend}
+          loading={isSending}
+          loadingText="判定中"
+          onClick={() => onSend?.(packet.bytes)}
+        >
           送信する
         </Button>
         <Text fontSize="xs" color="gray.500" mt="1">
-          {packet.isComplete
-            ? 'パケットは完成しています。送信はサーバーとの接続後に使えるようになります。'
-            : `${PROTOCOLS[upper].headerName} → ${PROTOCOLS.ethernet.headerName}の順に付与するとパケットが完成します。`}
+          {!packet.isComplete
+            ? `${PROTOCOLS[upper].headerName} → ${PROTOCOLS.ethernet.headerName}の順に付与するとパケットが完成します。`
+            : onSend
+              ? 'パケットは完成しています。送信すると、サーバーが正しいかを判定します。'
+              : 'サーバーにつながっていないため、送信できません。'}
         </Text>
       </Box>
     </VStack>

@@ -115,18 +115,26 @@ func (r *Runner) Run() {
 				return
 			}
 
-			success, reason := EvaluatePacket(lastReceivedPacket, step)
-			evalMsg := model.WSMessage{
-				Event:   "eval_result",
-				Step:    step.Step,
-				Success: success,
-				Message: reason,
-			}
-			r.safeWriteJSON(evalMsg)
+			// 不正解なら接続を切らず、同じステップでパケットの再送を待って判定し直す
+			for {
+				success, reason := EvaluatePacket(lastReceivedPacket, step)
+				evalMsg := model.WSMessage{
+					Event:   "eval_result",
+					Step:    step.Step,
+					Success: success,
+					Message: reason,
+				}
+				r.safeWriteJSON(evalMsg)
 
-			if !success {
+				if success {
+					break
+				}
 				log.Printf("[Scenario %s] Failed at Step %d", r.scenario.ScenarioID, step.Step)
-				return
+				lastReceivedPacket = &model.PacketJson{}
+				if err := r.conn.ReadJSON(lastReceivedPacket); err != nil {
+					log.Printf("Failed to receive packet from client: %v", err)
+					return
+				}
 			}
 		}
 	}
