@@ -1,6 +1,4 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
-import { SAMPLE_STAGES } from '../data/sampleStages'
-import testStage01 from '../test-data/stage-01.json'
 import type { PacketJson, ReceivedPacket, Stage, Topology, WSMessage } from './types'
 
 // ステージ情報の取得（GET /getstages と GET /getstages/:stageID）と、ゲーム進行の WebSocket（/ws/:stageID）
@@ -8,10 +6,6 @@ import type { PacketJson, ReceivedPacket, Stage, Topology, WSMessage } from './t
 const SERVER_URL = 'http://localhost:8080'
 const STAGES_URL = `${SERVER_URL}/getstages`
 const SOCKET_URL = `${SERVER_URL.replace(/^http/, 'ws')}/ws`
-
-// 【テスト用・後で削除】一覧の末尾に足す、options / action_buttons の動作確認用ステージ。
-// 削除するときは src/test-data フォルダとこの行・import を消す
-const TEST_STAGES = [testStage01] as Stage[]
 
 async function fetchJson<T>(url: string, signal: AbortSignal): Promise<T> {
   const response = await fetch(url, { signal })
@@ -44,18 +38,18 @@ export async function fetchStage(stageId: string, signal: AbortSignal): Promise<
   }
 }
 
-// ステージ一覧。取得できなければサンプルデータを使う
+// ステージ一覧。取得できなければ hasError を立てる（一覧は空）
 export function useStages() {
-  const [state, setState] = useState({ stages: [] as Stage[], isLoading: true, isSample: false })
+  const [state, setState] = useState({ stages: [] as Stage[], isLoading: true, hasError: false })
 
   useEffect(() => {
     const controller = new AbortController()
     fetchStages(controller.signal)
-      .then((stages) => setState({ stages: [...stages, ...TEST_STAGES], isLoading: false, isSample: false }))
+      .then((stages) => setState({ stages, isLoading: false, hasError: false }))
       .catch((error: unknown) => {
         if (controller.signal.aborted) return
-        console.warn('ステージ一覧の取得に失敗したためサンプルデータを使用します', error)
-        setState({ stages: [...SAMPLE_STAGES, ...TEST_STAGES], isLoading: false, isSample: true })
+        console.warn('ステージ一覧の取得に失敗しました', error)
+        setState({ stages: [], isLoading: false, hasError: true })
       })
     return () => controller.abort()
   }, [])
@@ -63,8 +57,7 @@ export function useStages() {
   return state
 }
 
-// 一覧のステージに topology がなければ、詳細を取得する
-// （サンプルデータ・テスト用データははじめから詳細を持っているので取得しない）
+// 一覧のステージに topology がなければ、詳細を取得する（一覧 GET /getstages には topology が含まれない）
 export function useStageDetail(summary: Stage | undefined) {
   const needsFetch = !!summary && !summary.topology
   const [fetched, setFetched] = useState<{ id: string; stage: Stage | null } | null>(null)

@@ -2,7 +2,6 @@ import { Heading, HStack, Popover, Portal, Spinner, Text, VStack } from '@chakra
 import { useMemo } from 'react'
 import { Navigate, useParams } from 'react-router'
 import { PageLayout } from '../components/PageLayout'
-import { SampleDataBadge } from '../components/ui'
 import { useStageDetail, useStages } from '../stage/api'
 import { buildWorkspace } from '../stage/buildWorkspace'
 import { StageWorkspace } from '../workspace/StageWorkspace'
@@ -12,7 +11,7 @@ const BACK_TO_STAGES = { to: '/stages', label: 'ステージ選択に戻る' }
 // ステージのプレイ画面（/stages/:stageId）。知らない id はステージ選択に戻す
 export function StagePage() {
   const { stageId } = useParams()
-  const { stages, isLoading, isSample } = useStages()
+  const { stages, isLoading } = useStages()
   const index = stages.findIndex((stage) => stage.id === stageId)
   const detail = useStageDetail(stages[index])
   // 作業画面はトポロジーにルータがあるステージで、ステージ情報から作る
@@ -36,7 +35,6 @@ export function StagePage() {
         // 画面右上に表示するステージ名と説明
         <VStack align="flex-end" gap="0.5" textAlign="right">
           <HStack gap="2" wrap="wrap" justify="flex-end">
-            {isSample && <SampleDataBadge />}
             <Text fontSize="xs" fontWeight="semibold" color="green.600">
               ステージ{index + 1}
             </Text>

@@ -1,4 +1,4 @@
-import { Badge, Box, Button, Flex, Heading, Separator, Text, VStack, type ButtonProps, type StackProps } from '@chakra-ui/react'
+import { Button, Flex, Heading, Separator, Text, VStack, type ButtonProps, type StackProps } from '@chakra-ui/react'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import type { Stage } from '../stage/types'
@@ -106,27 +106,5 @@ export function Panel({ title, action, children, ...props }: StackProps & { titl
       )}
       {children}
     </VStack>
-  )
-}
-
-const SAMPLE_DATA_MESSAGE = 'サーバーに接続できないため、サンプルデータを表示しています'
-
-// サンプルデータを表示中であることを示す小さなバッジ（詳細はホバーで出す）
-export function SampleDataBadge() {
-  return (
-    <Badge
-      colorPalette="orange"
-      variant="subtle"
-      size="sm"
-      rounded="full"
-      px="2"
-      gap="1.5"
-      title={SAMPLE_DATA_MESSAGE}
-      aria-label={SAMPLE_DATA_MESSAGE}
-      cursor="help"
-    >
-      <Box as="span" w="1.5" h="1.5" rounded="full" bg="orange.500" />
-      サンプルデータ
-    </Badge>
   )
 }
